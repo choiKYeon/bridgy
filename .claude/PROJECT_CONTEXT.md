@@ -11,8 +11,39 @@
 
 - **고객 진입 장벽 제로**: 앱 설치, 회원가입 없음. 카카오톡으로만 소통.
 - **AI 자동화**: 고객 문의 자동 응답, 예약 자연어 파싱, 리뷰 자동 답글
-- **사장님 대시보드**: 웹에서 매장/예약/대화/리뷰 관리
+- **사장님 모바일 앱**: 사장님은 앱을 설치하고, 고객 문의/예약 시 앱 푸시 알림 수신. 앱에서 매장/예약/대화/리뷰 관리.
 - **이벤트 드리븐**: Kafka로 비동기 알림, Redis로 캐싱
+
+## 초기 MVP 플로우
+
+```
+[고객 → 매장]
+고객 (카카오톡 문의) → AI 자동 응답 + 예약 자동 생성
+                         ↓
+              Kafka 이벤트 → 사장님 앱 푸시 알림 (FCM)
+
+[사장님 → 앱 음성 관리]
+사장님 (음성 명령) → STT → 명령 의도 분류 → 서비스 실행 → TTS 음성 응답
+  예) "내일 예약 확인해줘" → 예약 목록 조회 → "내일 예약 3건 있습니다. 6시 2명..."
+  예) "방금 문의한 고객한테 자리 있다고 답장해" → 카카오톡 메시지 전송
+  예) "오늘 영업시간 1시간 연장해줘" → 매장 정보 수정
+```
+
+- 고객: 카카오톡만 사용 (앱 설치 X, 회원가입 X)
+- 사장님: 전용 앱 설치 → 푸시 알림 수신 → **음성으로 모든 관리 가능** (최대 편의성)
+- 사장님 앱 = **AI 비서 앱**. IT에 익숙하지 않은 사장님도 말만 하면 다 처리됨. 직원한테 시키듯이 자연어로 명령.
+
+### 사장님 음성 명령 분류 (OwnerCommandType)
+
+| 명령 타입 | 예시 음성 | 실행 |
+|-----------|-----------|------|
+| RESERVATION_CHECK | "내일 예약 알려줘" | 예약 목록 조회 |
+| RESERVATION_CONFIRM | "6시 예약 확인해줘" | 예약 상태 변경 |
+| RESERVATION_CANCEL | "노쇼 처리해" | 예약 취소/노쇼 |
+| REPLY_CUSTOMER | "고객한테 자리 있다고 답장" | 카카오톡 메시지 전송 |
+| STORE_UPDATE | "영업시간 변경해줘" | 매장 정보 수정 |
+| REVIEW_REPLY | "리뷰에 감사하다고 답글 달아줘" | 리뷰 답글 등록 |
+| STATUS_CHECK | "오늘 문의 몇 건이야" | 대시보드 요약 |
 
 ---
 
@@ -175,14 +206,24 @@ cp src/main/resources/application-local.yml.example src/main/resources/applicati
 
 ## 향후 계획 (TODO)
 
+### Phase 1: 핵심 백엔드 완성
 - [ ] 실제 AI API 연동 (OpenAI / Claude) — 현재 Mock 구현
 - [ ] 카카오 i 오픈빌더 실제 채널 연동
-- [ ] 사장님 웹 대시보드 프론트엔드 (React)
-- [ ] Kafka Consumer 실제 알림 구현 (이메일, 푸시, 카카오 알림톡)
-- [ ] Spring Security JWT 인증
+- [ ] Spring Security JWT 인증 (사장님 앱 로그인)
+- [ ] FCM 푸시 알림 연동 (Kafka Consumer → Firebase)
+
+### Phase 2: 사장님 AI 비서 (음성)
+- [ ] STT 연동 (Google Speech-to-Text / Whisper / 카카오 STT)
+- [ ] 사장님 음성 명령 API (`POST /api/owner/voice-command`)
+- [ ] OwnerCommandService — 음성 텍스트 → 의도 분류 → 서비스 실행
+- [ ] TTS 연동 (실행 결과를 음성으로 응답)
+- [ ] 사장님 모바일 앱 (React Native / Flutter)
+
+### Phase 3: 고도화
 - [ ] ReservationService, ReviewService에 @Cacheable 추가
-- [ ] CI/CD 배포 파이프라인
 - [ ] KakaoMessageEvent를 활용한 비동기 메시지 처리
+- [ ] CI/CD 배포 파이프라인
+- [ ] 사장님 음성 명령 히스토리 로깅
 
 ---
 
