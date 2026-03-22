@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:bridgy-test
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  # 테스트 환경에서는 Kafka 자동설정 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+  # 테스트 환경에서는 Redis 자동설정 비활성화
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+  cache:
+    type: none
+
+logging:
+  level:
+    org.grr.bridgy: DEBUG

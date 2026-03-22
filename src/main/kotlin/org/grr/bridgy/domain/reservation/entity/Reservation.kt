@@ -35,6 +35,10 @@ class Reservation(
     @Column(nullable = false, length = 20)
     var status: ReservationStatus = ReservationStatus.PENDING,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 20)
+    var source: ReservationSource = ReservationSource.KAKAOTALK,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 
@@ -48,4 +52,10 @@ enum class ReservationStatus {
     CANCELLED,
     COMPLETED,
     NO_SHOW
+}
+
+enum class ReservationSource {
+    KAKAOTALK,  // 카카오톡 대화로 접수
+    DASHBOARD,  // 사장님이 대시보드에서 직접 등록
+    PHONE       // 전화 예약 수동 등록
 }

@@ -5,6 +5,9 @@ import org.grr.bridgy.domain.store.dto.StoreResponse
 import org.grr.bridgy.domain.store.dto.StoreUpdateRequest
 import org.grr.bridgy.domain.store.entity.Store
 import org.grr.bridgy.domain.store.repository.StoreRepository
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.cache.annotation.Caching
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -14,17 +17,20 @@ import java.time.LocalDateTime
 class StoreService(
     private val storeRepository: StoreRepository
 ) {
+    @Cacheable(value = ["store"], key = "#id")
     fun getStore(id: Long): StoreResponse {
         val store = storeRepository.findById(id)
             .orElseThrow { NoSuchElementException("매장을 찾을 수 없습니다: $id") }
         return StoreResponse.from(store)
     }
 
+    @Cacheable(value = ["storesByOwner"], key = "#ownerEmail")
     fun getStoresByOwner(ownerEmail: String): List<StoreResponse> {
         return storeRepository.findByOwnerEmail(ownerEmail).map { StoreResponse.from(it) }
     }
 
     @Transactional
+    @CacheEvict(value = ["storesByOwner"], allEntries = true)
     fun createStore(request: StoreCreateRequest): StoreResponse {
         val store = Store(
             name = request.name,
@@ -42,6 +48,10 @@ class StoreService(
     }
 
     @Transactional
+    @Caching(evict = [
+        CacheEvict(value = ["store"], key = "#id"),
+        CacheEvict(value = ["storesByOwner"], allEntries = true)
+    ])
     fun updateStore(id: Long, request: StoreUpdateRequest): StoreResponse {
         val store = storeRepository.findById(id)
             .orElseThrow { NoSuchElementException("매장을 찾을 수 없습니다: $id") }
@@ -61,6 +71,10 @@ class StoreService(
     }
 
     @Transactional
+    @Caching(evict = [
+        CacheEvict(value = ["store"], key = "#id"),
+        CacheEvict(value = ["storesByOwner"], allEntries = true)
+    ])
     fun deleteStore(id: Long) {
         storeRepository.deleteById(id)
     }

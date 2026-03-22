@@ -36,7 +36,8 @@ class ReservationService(
             reservationDate = request.reservationDate,
             reservationTime = request.reservationTime,
             partySize = request.partySize,
-            memo = request.memo
+            memo = request.memo,
+            source = request.source
         )
         return ReservationResponse.from(reservationRepository.save(reservation))
     }

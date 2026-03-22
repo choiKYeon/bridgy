@@ -6,6 +6,7 @@ import org.grr.bridgy.domain.review.entity.Review
 import org.grr.bridgy.domain.review.repository.ReviewRepository
 import org.grr.bridgy.domain.store.entity.Store
 import org.grr.bridgy.domain.store.repository.StoreRepository
+import org.grr.bridgy.kafka.producer.EventProducer
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -30,6 +31,9 @@ class ReviewServiceTest {
 
     @Mock
     lateinit var aiService: AiService
+
+    @Mock
+    lateinit var eventProducer: EventProducer
 
     @InjectMocks
     lateinit var reviewService: ReviewService
