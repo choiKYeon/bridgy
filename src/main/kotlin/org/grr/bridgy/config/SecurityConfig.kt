@@ -18,8 +18,10 @@ class SecurityConfig {
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    // 카카오 웹훅은 인증 없이 접근 허용
-                    .requestMatchers("/api/kakao/**").permitAll()
+                    // 회원가입/로그인은 인증 없이 접근 허용
+                    .requestMatchers("/api/users/signup", "/api/users/login").permitAll()
+                    // 반려동물 조회는 누구나 가능
+                    .requestMatchers("GET", "/api/pets/**").permitAll()
                     // Swagger UI
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     // H2 Console (로컬 개발용)

@@ -15,10 +15,12 @@ import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.serializer.StringRedisSerializer
+import org.springframework.context.annotation.Profile
 import java.time.Duration
 
 @Configuration
 @EnableCaching
+@Profile("!test")
 class RedisConfig {
 
     @Bean
@@ -52,10 +54,11 @@ class RedisConfig {
 
         // 캐시별 TTL 설정
         val cacheConfigs = mapOf(
-            "store" to defaultConfig.entryTtl(Duration.ofMinutes(30)),         // 매장 정보: 30분
-            "storesByOwner" to defaultConfig.entryTtl(Duration.ofMinutes(15)), // 사장님 매장 목록: 15분
-            "reservations" to defaultConfig.entryTtl(Duration.ofMinutes(5)),   // 예약 목록: 5분
-            "reviews" to defaultConfig.entryTtl(Duration.ofMinutes(10))        // 리뷰 목록: 10분
+            "pets" to defaultConfig.entryTtl(Duration.ofMinutes(30)),           // 반려동물 프로필: 30분
+            "petsByUser" to defaultConfig.entryTtl(Duration.ofMinutes(15)),     // 사용자별 반려동물 목록: 15분
+            "gallery" to defaultConfig.entryTtl(Duration.ofMinutes(10)),        // 갤러리: 10분
+            "healthRecords" to defaultConfig.entryTtl(Duration.ofMinutes(10)),  // 건강 기록: 10분
+            "dailyRecords" to defaultConfig.entryTtl(Duration.ofMinutes(5))    // 일상 기록: 5분
         )
 
         return RedisCacheManager.builder(connectionFactory)

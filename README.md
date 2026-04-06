@@ -1,8 +1,8 @@
 # Bridgy
 
-소상공인 매장과 고객을 카카오톡으로 연결하는 AI 에이전트 플랫폼입니다.
+사람들의 반려동물을 소개하고 공유하는 소셜 플랫폼입니다.
 
-고객은 앱 설치나 회원가입 없이 카카오톡으로 문의하면 AI가 자동 응답하고, 사장님은 웹 대시보드에서 매장을 관리합니다.
+반려동물 프로필 등록, 사진 갤러리, 인기 반려동물 대시보드까지 한 곳에서 관리하고, 다른 반려인들과 소통할 수 있습니다. 한 사용자가 여러 마리의 반려동물을 등록할 수 있습니다.
 
 ## 기술 스택
 
@@ -10,29 +10,68 @@
 - **Framework**: Spring Boot 3.2.5 (JDK 17)
 - **Database**: PostgreSQL 16 (운영) / H2 (로컬/테스트)
 - **Cache**: Redis 7
-- **Message Broker**: Apache Kafka (Confluent 7.6.0)
 - **ORM**: Spring Data JPA
 - **API Docs**: SpringDoc OpenAPI 2.5.0
-- **Test**: JUnit 5 + Mockito-Kotlin (82개 테스트)
+- **Test**: JUnit 5 + Mockito-Kotlin
 - **Infra**: Docker Compose
+- **Frontend**: Flutter (별도 프로젝트)
 
 ## 프로젝트 구조
 
 ```
 src/main/kotlin/org/grr/bridgy/
-├── ai/           # AI 서비스 (의도 분류, 자연어 파싱, 응답 생성)
-├── config/       # Redis, Kafka, Security, CORS 설정
-├── domain/
-│   ├── chat/         # 카카오톡 대화 내역
-│   ├── customer/     # 고객 (카카오 유저 자동 식별)
-│   ├── reservation/  # 예약 관리
-│   ├── review/       # 리뷰 + AI 자동 답글
-│   └── store/        # 매장 관리
-├── kafka/        # 이벤트 발행/소비 (Producer, Consumer, Event)
-└── kakao/        # 카카오톡 채널 웹훅 연동
+├── config/             # Redis, Security, CORS 설정
+└── domain/
+    ├── user/           # 사용자 (회원가입, 로그인, 프로필)
+    ├── pet/            # 반려동물 프로필 + 대시보드 (인기순/최신순 피드)
+    ├── gallery/        # 사진 갤러리
+    ├── comment/        # 댓글
+    └── like/           # 좋아요
 ```
 
-각 패키지별 상세 내용은 해당 디렉토리의 `README.md`를 참조하세요.
+## 주요 기능
+
+### 사용자 관리
+- 회원가입, 로그인, 프로필 수정
+
+### 반려동물 프로필
+- 반려동물 등록 (이름, 종류, 품종, 나이, 성별, 체중, 소개)
+- **한 사용자가 여러 마리 등록 가능**
+- 사용자별 반려동물 목록 조회
+- 이름/종류별 검색
+
+### 대시보드 (인기 반려동물)
+- **인기순 피드**: 좋아요 많은 순으로 반려동물 조회
+- **최신순 피드**: 최근 등록된 반려동물 조회
+- 각 반려동물의 좋아요 수, 댓글 수, 갤러리 수 포함
+- 현재 사용자의 좋아요 여부 표시
+
+### 사진 갤러리
+- 반려동물별 사진 업로드 및 캡션 작성
+- 갤러리 조회
+
+### 소셜 기능
+- 반려동물 프로필에 좋아요 (토글)
+- 댓글 작성 및 소통
+
+## API 엔드포인트
+
+| 도메인 | 경로 | 설명 |
+|--------|------|------|
+| 사용자 | `POST /api/users/signup` | 회원가입 |
+| 사용자 | `GET /api/users/{id}` | 사용자 조회 |
+| 반려동물 | `POST /api/pets` | 반려동물 등록 |
+| 반려동물 | `GET /api/pets/user/{userId}` | 내 반려동물 목록 (다중 펫) |
+| 반려동물 | `GET /api/pets/search?name=` | 이름 검색 |
+| **대시보드** | `GET /api/pets/feed/popular` | **인기순 피드** |
+| **대시보드** | `GET /api/pets/feed/recent` | **최신순 피드** |
+| 상세 | `GET /api/pets/{id}/detail` | 반려동물 상세 (좋아요/댓글수 포함) |
+| 갤러리 | `POST /api/gallery` | 사진 업로드 |
+| 갤러리 | `GET /api/gallery/pet/{petId}` | 사진 조회 |
+| 댓글 | `POST /api/comments` | 댓글 작성 |
+| 댓글 | `GET /api/comments/pet/{petId}` | 댓글 조회 |
+| 좋아요 | `POST /api/likes` | 좋아요 토글 |
+| 좋아요 | `GET /api/likes/pet/{petId}/user/{userId}` | 좋아요 상태 |
 
 ## 시작하기
 
@@ -42,37 +81,18 @@ src/main/kotlin/org/grr/bridgy/
 docker-compose up -d
 ```
 
-PostgreSQL(5432), Redis(6379), Kafka(9092), Kafka UI(8090)가 실행됩니다.
+PostgreSQL(5432), Redis(6379)가 실행됩니다.
 
-### 2. 설정 파일 준비
-
-```bash
-cp src/main/resources/application.yml.example src/main/resources/application.yml
-cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
-```
-
-`.yml` 파일은 `.gitignore`에 등록되어 있으므로 `.example` 파일을 복사하여 사용합니다.
-
-### 3. 애플리케이션 실행
+### 2. 애플리케이션 실행
 
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-### 4. API 문서 확인
+### 3. API 문서 확인
 
 ```
 http://localhost:8080/swagger-ui/index.html
-```
-
-## 핵심 플로우
-
-```
-고객 (카카오톡) → 웹훅 → AI 의도 분류 → 자동 응답
-                                  ↓
-                         예약 의도 → 자연어 파싱 → 예약 자동 생성
-                                  ↓
-                         Kafka 이벤트 → 사장님 알림
 ```
 
 ## 테스트
@@ -80,8 +100,6 @@ http://localhost:8080/swagger-ui/index.html
 ```bash
 ./gradlew test
 ```
-
-총 82개 테스트 (11개 테스트 파일)가 TDD로 작성되어 있습니다.
 
 ## GitHub
 
