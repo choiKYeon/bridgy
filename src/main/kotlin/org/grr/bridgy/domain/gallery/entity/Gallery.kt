@@ -1,8 +1,8 @@
 package org.grr.bridgy.domain.gallery.entity
 
 import jakarta.persistence.*
+import org.grr.bridgy.domain.common.BaseTime
 import org.grr.bridgy.domain.pet.entity.Pet
-import java.time.LocalDateTime
 
 @Entity
 @Table(name = "galleries")
@@ -19,8 +19,5 @@ class Gallery(
     var imageUrl: String,
 
     @Column(length = 500)
-    var caption: String? = null,
-
-    @Column(nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now()
-)
+    var caption: String? = null
+) : BaseTime()

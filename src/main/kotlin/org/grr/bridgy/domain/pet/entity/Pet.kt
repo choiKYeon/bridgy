@@ -1,8 +1,8 @@
 package org.grr.bridgy.domain.pet.entity
 
 import jakarta.persistence.*
+import org.grr.bridgy.domain.common.BaseTime
 import org.grr.bridgy.domain.user.entity.User
-import java.time.LocalDateTime
 
 @Entity
 @Table(name = "pets")
@@ -38,14 +38,8 @@ class Pet(
     var bio: String? = null,
 
     @Column
-    var profileImageUrl: String? = null,
-
-    @Column(nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-
-    @Column(nullable = false)
-    var updatedAt: LocalDateTime = LocalDateTime.now()
-)
+    var profileImageUrl: String? = null
+) : BaseTime()
 
 enum class PetGender {
     MALE, FEMALE, NEUTERED_MALE, SPAYED_FEMALE, UNKNOWN

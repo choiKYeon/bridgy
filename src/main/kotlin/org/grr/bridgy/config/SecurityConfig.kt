@@ -1,15 +1,24 @@
 package org.grr.bridgy.config
 
+import org.grr.bridgy.config.jwt.JwtFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
+class SecurityConfig(
+    private val jwtFilter: JwtFilter
+) {
+
+    @Bean
+    fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
 
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
@@ -18,18 +27,17 @@ class SecurityConfig {
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    // 회원가입/로그인은 인증 없이 접근 허용
-                    .requestMatchers("/api/users/signup", "/api/users/login").permitAll()
-                    // 반려동물 조회는 누구나 가능
-                    .requestMatchers("GET", "/api/pets/**").permitAll()
+                    // v0 API는 인증 없이 접근 허용
+                    .requestMatchers("/api/v0/**").permitAll()
                     // Swagger UI
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     // H2 Console (로컬 개발용)
                     .requestMatchers("/h2-console/**").permitAll()
-                    // 나머지 API는 인증 필요 (추후 JWT 등 추가)
-                    .anyRequest().permitAll() // TODO: 인증 구현 후 authenticated()로 변경
+                    // 나머지 전부 인증 필요
+                    .anyRequest().authenticated()
             }
-            .headers { it.frameOptions { frame -> frame.sameOrigin() } } // H2 Console용
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .headers { it.frameOptions { frame -> frame.sameOrigin() } }
 
         return http.build()
     }

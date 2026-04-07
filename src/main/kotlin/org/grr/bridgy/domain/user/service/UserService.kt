@@ -5,14 +5,15 @@ import org.grr.bridgy.domain.user.dto.UpdateUserRequest
 import org.grr.bridgy.domain.user.dto.UserResponse
 import org.grr.bridgy.domain.user.entity.User
 import org.grr.bridgy.domain.user.repository.UserRepository
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
 
 @Service
 @Transactional(readOnly = true)
 class UserService(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val passwordEncoder: PasswordEncoder
 ) {
 
     @Transactional
@@ -22,7 +23,7 @@ class UserService(
 
         val user = User(
             email = request.email,
-            password = request.password, // TODO: 비밀번호 암호화 적용
+            password = passwordEncoder.encode(request.password),
             nickname = request.nickname,
             bio = request.bio
         )
@@ -54,7 +55,6 @@ class UserService(
         }
         request.profileImageUrl?.let { user.profileImageUrl = it }
         request.bio?.let { user.bio = it }
-        user.updatedAt = LocalDateTime.now()
 
         return UserResponse.from(userRepository.save(user))
     }

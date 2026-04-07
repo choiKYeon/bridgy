@@ -9,10 +9,10 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
-@Tag(name = "Gallery", description = "갤러리 API")
+@Tag(name = "Gallery V1", description = "갤러리 인증 API")
 @RestController
-@RequestMapping("/api/gallery")
-class GalleryController(
+@RequestMapping("/api/v1/gallery")
+class GalleryControllerV1(
     private val galleryService: GalleryService
 ) {
 
@@ -20,18 +20,6 @@ class GalleryController(
     @PostMapping
     fun addPhoto(@RequestBody request: CreateGalleryRequest): ResponseEntity<GalleryResponse> {
         return ResponseEntity.status(HttpStatus.CREATED).body(galleryService.addPhoto(request))
-    }
-
-    @Operation(summary = "펫별 사진 목록", description = "특정 반려동물의 갤러리 사진 목록 (최신순)")
-    @GetMapping("/pet/{petId}")
-    fun getPhotosByPet(@PathVariable petId: Long): ResponseEntity<List<GalleryResponse>> {
-        return ResponseEntity.ok(galleryService.getPhotosByPetId(petId))
-    }
-
-    @Operation(summary = "사진 단건 조회", description = "photoId로 사진 상세 조회")
-    @GetMapping("/{photoId}")
-    fun getPhoto(@PathVariable photoId: Long): ResponseEntity<GalleryResponse> {
-        return ResponseEntity.ok(galleryService.getPhotoById(photoId))
     }
 
     @Operation(summary = "사진 삭제", description = "갤러리 사진 삭제")

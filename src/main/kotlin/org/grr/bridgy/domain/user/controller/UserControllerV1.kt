@@ -2,26 +2,18 @@ package org.grr.bridgy.domain.user.controller
 
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
-import org.grr.bridgy.domain.user.dto.SignUpRequest
 import org.grr.bridgy.domain.user.dto.UpdateUserRequest
 import org.grr.bridgy.domain.user.dto.UserResponse
 import org.grr.bridgy.domain.user.service.UserService
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
-@Tag(name = "User", description = "회원 API")
+@Tag(name = "User V1", description = "회원 인증 API")
 @RestController
-@RequestMapping("/api/users")
-class UserController(
+@RequestMapping("/api/v1/users")
+class UserControllerV1(
     private val userService: UserService
 ) {
-
-    @Operation(summary = "회원가입", description = "이메일, 비밀번호, 닉네임으로 회원가입")
-    @PostMapping("/signup")
-    fun signUp(@RequestBody request: SignUpRequest): ResponseEntity<UserResponse> {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.signUp(request))
-    }
 
     @Operation(summary = "회원 조회", description = "userId로 회원 정보 조회")
     @GetMapping("/{userId}")

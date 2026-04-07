@@ -10,10 +10,10 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
-@Tag(name = "Comment", description = "댓글 API")
+@Tag(name = "Comment V1", description = "댓글 인증 API")
 @RestController
-@RequestMapping("/api/comments")
-class CommentController(
+@RequestMapping("/api/v1/comments")
+class CommentControllerV1(
     private val commentService: CommentService
 ) {
 
@@ -21,18 +21,6 @@ class CommentController(
     @PostMapping
     fun createComment(@RequestBody request: CreateCommentRequest): ResponseEntity<CommentResponse> {
         return ResponseEntity.status(HttpStatus.CREATED).body(commentService.createComment(request))
-    }
-
-    @Operation(summary = "펫별 댓글 목록", description = "특정 반려동물의 댓글 목록 (최신순)")
-    @GetMapping("/pet/{petId}")
-    fun getCommentsByPet(@PathVariable petId: Long): ResponseEntity<List<CommentResponse>> {
-        return ResponseEntity.ok(commentService.getCommentsByPetId(petId))
-    }
-
-    @Operation(summary = "댓글 수 조회", description = "특정 반려동물의 총 댓글 수")
-    @GetMapping("/pet/{petId}/count")
-    fun getCommentCount(@PathVariable petId: Long): ResponseEntity<Long> {
-        return ResponseEntity.ok(commentService.getCommentCount(petId))
     }
 
     @Operation(summary = "댓글 수정", description = "댓글 내용 수정")

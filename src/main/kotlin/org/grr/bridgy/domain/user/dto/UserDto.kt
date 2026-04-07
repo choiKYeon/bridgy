@@ -10,11 +10,6 @@ data class SignUpRequest(
     val bio: String? = null
 )
 
-data class LoginRequest(
-    val email: String,
-    val password: String
-)
-
 data class UpdateUserRequest(
     val nickname: String? = null,
     val profileImageUrl: String? = null,

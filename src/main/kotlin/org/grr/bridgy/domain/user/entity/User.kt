@@ -1,7 +1,7 @@
 package org.grr.bridgy.domain.user.entity
 
 import jakarta.persistence.*
-import java.time.LocalDateTime
+import org.grr.bridgy.domain.common.BaseTime
 
 @Entity
 @Table(name = "users")
@@ -23,11 +23,5 @@ class User(
     var profileImageUrl: String? = null,
 
     @Column(length = 500)
-    var bio: String? = null,
-
-    @Column(nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-
-    @Column(nullable = false)
-    var updatedAt: LocalDateTime = LocalDateTime.now()
-)
+    var bio: String? = null
+) : BaseTime()

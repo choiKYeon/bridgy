@@ -1,9 +1,9 @@
 package org.grr.bridgy.domain.comment.entity
 
 import jakarta.persistence.*
+import org.grr.bridgy.domain.common.BaseTime
 import org.grr.bridgy.domain.pet.entity.Pet
 import org.grr.bridgy.domain.user.entity.User
-import java.time.LocalDateTime
 
 @Entity
 @Table(name = "comments")
@@ -21,11 +21,5 @@ class Comment(
     val user: User,
 
     @Column(nullable = false, length = 1000)
-    var content: String,
-
-    @Column(nullable = false, updatable = false)
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-
-    @Column(nullable = false)
-    var updatedAt: LocalDateTime = LocalDateTime.now()
-)
+    var content: String
+) : BaseTime()
