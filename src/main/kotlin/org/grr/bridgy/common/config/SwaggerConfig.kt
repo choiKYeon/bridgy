@@ -1,4 +1,4 @@
-package org.grr.bridgy.config
+package org.grr.bridgy.common.config
 
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Contact

@@ -47,4 +47,5 @@ bin/
 ### Application Config (민감 정보 포함 가능) ###
 **/src/main/resources/application.yml
 **/src/main/resources/application-*.yml
+**/src/main/resources/config/*.yml
 !**/src/test/resources/application*.yml

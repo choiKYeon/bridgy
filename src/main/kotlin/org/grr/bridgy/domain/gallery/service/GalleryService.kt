@@ -1,10 +1,12 @@
 package org.grr.bridgy.domain.gallery.service
 
+import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.domain.gallery.dto.CreateGalleryRequest
 import org.grr.bridgy.domain.gallery.dto.GalleryResponse
 import org.grr.bridgy.domain.gallery.entity.Gallery
 import org.grr.bridgy.domain.gallery.repository.GalleryRepository
 import org.grr.bridgy.domain.pet.repository.PetRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,7 +20,7 @@ class GalleryService(
     @Transactional
     fun addPhoto(request: CreateGalleryRequest): GalleryResponse {
         val pet = petRepository.findById(request.petId)
-            .orElseThrow { IllegalArgumentException("반려동물을 찾을 수 없습니다. id=${request.petId}") }
+            .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
 
         val gallery = Gallery(
             pet = pet,
@@ -35,13 +37,15 @@ class GalleryService(
 
     fun getPhotoById(photoId: Long): GalleryResponse {
         val gallery = galleryRepository.findById(photoId)
-            .orElseThrow { IllegalArgumentException("사진을 찾을 수 없습니다. id=$photoId") }
+            .orElseThrow { CustomException("사진을 찾을 수 없습니다. id=$photoId", HttpStatus.NOT_FOUND) }
         return GalleryResponse.from(gallery)
     }
 
     @Transactional
     fun deletePhoto(photoId: Long) {
-        require(galleryRepository.existsById(photoId)) { "사진을 찾을 수 없습니다. id=$photoId" }
+        if (!galleryRepository.existsById(photoId)) {
+            throw CustomException("사진을 찾을 수 없습니다. id=$photoId", HttpStatus.NOT_FOUND)
+        }
         galleryRepository.deleteById(photoId)
     }
 }

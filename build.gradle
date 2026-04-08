@@ -62,3 +62,8 @@ kotlin {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// bootRun 실행 전 반드시 테스트 통과해야 함
+tasks.named('bootRun') {
+    dependsOn 'test'
+}

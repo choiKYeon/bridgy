@@ -1,6 +1,6 @@
-package org.grr.bridgy.config
+package org.grr.bridgy.common.config
 
-import org.grr.bridgy.config.jwt.JwtFilter
+import org.grr.bridgy.common.jwt.JwtFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity

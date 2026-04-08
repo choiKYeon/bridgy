@@ -1,4 +1,4 @@
-package org.grr.bridgy.config.jwt
+package org.grr.bridgy.common.jwt
 
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest

@@ -1,12 +1,14 @@
 package org.grr.bridgy.domain.auth.service
 
-import org.grr.bridgy.config.jwt.JwtProvider
+import org.grr.bridgy.common.exception.CustomException
+import org.grr.bridgy.common.jwt.JwtProvider
 import org.grr.bridgy.domain.auth.dto.LoginRequest
 import org.grr.bridgy.domain.auth.dto.TokenRefreshRequest
 import org.grr.bridgy.domain.auth.dto.TokenResponse
 import org.grr.bridgy.domain.auth.entity.RefreshToken
 import org.grr.bridgy.domain.auth.repository.RefreshTokenRepository
 import org.grr.bridgy.domain.user.repository.UserRepository
+import org.springframework.http.HttpStatus
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,10 +26,10 @@ class AuthService(
     @Transactional
     fun login(request: LoginRequest): TokenResponse {
         val user = userRepository.findByEmail(request.email)
-            .orElseThrow { IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.") }
+            .orElseThrow { CustomException("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED) }
 
-        require(passwordEncoder.matches(request.password, user.password)) {
-            "이메일 또는 비밀번호가 올바르지 않습니다."
+        if (!passwordEncoder.matches(request.password, user.password)) {
+            throw CustomException("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED)
         }
 
         val accessToken = jwtProvider.createAccessToken(user.id, user.email)
@@ -41,18 +43,18 @@ class AuthService(
     @Transactional
     fun refresh(request: TokenRefreshRequest): TokenResponse {
         val refreshToken = refreshTokenRepository.findByToken(request.refreshToken)
-            .orElseThrow { IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.") }
+            .orElseThrow { CustomException("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED) }
 
-        require(refreshToken.expiryDate.isAfter(LocalDateTime.now())) {
-            "만료된 리프레시 토큰입니다. 다시 로그인해주세요."
+        if (refreshToken.expiryDate.isBefore(LocalDateTime.now())) {
+            throw CustomException("만료된 리프레시 토큰입니다. 다시 로그인해주세요.", HttpStatus.UNAUTHORIZED)
         }
 
-        require(jwtProvider.validateToken(request.refreshToken)) {
-            "유효하지 않은 리프레시 토큰입니다."
+        if (!jwtProvider.validateToken(request.refreshToken)) {
+            throw CustomException("유효하지 않은 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED)
         }
 
         val user = userRepository.findById(refreshToken.userId)
-            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다.") }
+            .orElseThrow { CustomException("사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND) }
 
         val newAccessToken = jwtProvider.createAccessToken(user.id, user.email)
         val newRefreshToken = jwtProvider.createRefreshToken(user.id, user.email)

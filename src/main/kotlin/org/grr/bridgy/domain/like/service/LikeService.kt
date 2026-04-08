@@ -1,11 +1,13 @@
 package org.grr.bridgy.domain.like.service
 
+import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.domain.like.dto.LikeRequest
 import org.grr.bridgy.domain.like.dto.LikeResponse
 import org.grr.bridgy.domain.like.entity.Like
 import org.grr.bridgy.domain.like.repository.LikeRepository
 import org.grr.bridgy.domain.pet.repository.PetRepository
 import org.grr.bridgy.domain.user.repository.UserRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,9 +22,9 @@ class LikeService(
     @Transactional
     fun toggleLike(request: LikeRequest): LikeResponse {
         val pet = petRepository.findById(request.petId)
-            .orElseThrow { IllegalArgumentException("반려동물을 찾을 수 없습니다. id=${request.petId}") }
+            .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
         val user = userRepository.findById(request.userId)
-            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다. id=${request.userId}") }
+            .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=${request.userId}", HttpStatus.NOT_FOUND) }
 
         val existingLike = likeRepository.findByPetIdAndUserId(request.petId, request.userId)
 

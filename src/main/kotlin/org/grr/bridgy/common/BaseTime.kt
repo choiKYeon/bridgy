@@ -1,4 +1,4 @@
-package org.grr.bridgy.domain.common
+package org.grr.bridgy.common
 
 import jakarta.persistence.Column
 import jakarta.persistence.EntityListeners

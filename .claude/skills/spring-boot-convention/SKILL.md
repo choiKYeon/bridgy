@@ -152,20 +152,170 @@ password = passwordEncoder.encode(request.password)
 require(passwordEncoder.matches(request.password, user.password))
 ```
 
-## 6. 패키지 구조
+## 6. 예외 처리 규칙
+
+모든 예외는 `CustomException`을 사용한다. `IllegalArgumentException`, `IllegalStateException` 등 자바 기본 예외를 직접 던지지 않는다.
+
+- 위치: `common/exception/CustomException.kt`
+- `RuntimeException` 상속, `message`와 `HttpStatus`를 인자로 받음
+- `GlobalExceptionHandler`에서 `CustomException`을 잡아서 해당 HTTP 상태코드로 응답
+
+**사용법:**
+```kotlin
+// 404 - 리소스 없음
+throw CustomException("사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND)
+
+// 409 - 중복
+throw CustomException("이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT)
+
+// 401 - 인증 실패
+throw CustomException("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED)
+
+// 400 - 기본값 (status 생략 가능)
+throw CustomException("잘못된 요청입니다.")
+```
+
+**상황별 HTTP 상태코드 기준:**
+
+| 상황 | HttpStatus | 코드 |
+|------|-----------|------|
+| 리소스 없음 | NOT_FOUND | 404 |
+| 중복 리소스 | CONFLICT | 409 |
+| 인증 실패 | UNAUTHORIZED | 401 |
+| 권한 없음 | FORBIDDEN | 403 |
+| 잘못된 요청 | BAD_REQUEST | 400 |
+
+## 7. TDD (테스트 주도 개발) 규칙
+
+### 핵심 원칙
+
+**API를 만들면 반드시 테스트를 함께 작성한다.** 테스트 없는 API는 머지하지 않는다.
+
+`bootRun` 실행 시 Gradle이 자동으로 테스트를 먼저 수행한다. 테스트가 실패하면 서버가 올라가지 않는다. (`build.gradle`에 `bootRun.dependsOn('test')` 설정됨)
+
+### 테스트 파일 위치
+
+```
+src/test/kotlin/org/grr/bridgy/
+├── common/
+│   └── BaseIntegrationTest.kt    ← 테스트 베이스 클래스
+└── domain/
+    └── {도메인}/
+        └── {Domain}IntegrationTest.kt
+```
+
+### BaseIntegrationTest 상속
+
+모든 통합 테스트는 `BaseIntegrationTest`를 상속받는다. 이 클래스가 제공하는 것:
+- `mockMvc`, `objectMapper`, `jwtProvider`, `userRepository` 자동 주입
+- `createTestUser()` — 테스트용 사용자 생성
+- `accessTokenFor(user)` — JWT Access Token 생성
+- `withAuth(user)` — 요청에 Authorization 헤더 추가 (V1 테스트용)
+- `toJson(obj)` — JSON 직렬화
+
+### 테스트 작성 패턴
+
+```kotlin
+@TestMethodOrder(OrderAnnotation::class)
+class NewDomainIntegrationTest : BaseIntegrationTest() {
+
+    @Autowired lateinit var newDomainRepository: NewDomainRepository
+
+    // ─── V0 (공개) API 테스트 ───
+
+    @Test
+    @Order(1)
+    fun `V0 목록 조회`() {
+        // Given: 테스트 데이터 준비
+        // When: V0 엔드포인트 호출 (인증 없이)
+        mockMvc.perform(get("/api/v0/new-domain"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(expectedCount))
+    }
+
+    // ─── V1 (인증) API 테스트 ───
+
+    @Test
+    @Order(2)
+    fun `V1 생성 성공`() {
+        val user = createTestUser()
+        val request = CreateNewDomainRequest(...)
+
+        // When: V1 엔드포인트 호출 (인증 포함)
+        mockMvc.perform(
+            post("/api/v1/new-domain")
+                .withAuth(user)                           // ← JWT 인증 헤더 자동 추가
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isCreated)
+    }
+
+    @Test
+    @Order(3)
+    fun `V1 생성 실패 - 인증 없음`() {
+        // V1 엔드포인트에 토큰 없이 접근 → 401/403 확인
+        mockMvc.perform(
+            post("/api/v1/new-domain")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isUnauthorized.or(status().isForbidden))
+    }
+
+    @Test
+    fun `트랜잭션 롤백 검증`() {
+        Assertions.assertEquals(0, newDomainRepository.count())
+    }
+}
+```
+
+### 테스트 필수 항목 체크리스트
+
+새 API를 만들 때 아래 테스트를 반드시 포함한다:
+
+1. **성공 케이스**: 정상 요청 → 기대 응답 + DB 반영 확인
+2. **실패 케이스 - 리소스 없음**: 존재하지 않는 ID → 404 NOT_FOUND
+3. **실패 케이스 - 중복**: 중복 데이터 → 409 CONFLICT (해당되는 경우)
+4. **실패 케이스 - 인증 없음**: V1 API에 토큰 없이 접근 → 401/403
+5. **트랜잭션 롤백 검증**: 이전 테스트 데이터가 남아있지 않은지 확인
+
+### 테스트 설정
+
+테스트 환경 설정은 `src/test/resources/application-test.yml`:
+- H2 인메모리 DB (`create-drop`)
+- Redis 비활성화
+- 테스트용 JWT 시크릿 키
+
+### 테스트 명명 규칙
+
+```kotlin
+// 패턴: `{V버전} {기능} {성공/실패} - {조건}`
+fun `V0 전체 목록 조회`()
+fun `V1 등록 성공`()
+fun `V1 등록 실패 - 인증 없음`()
+fun `V1 수정 실패 - 존재하지 않는 ID`()
+```
+
+## 8. 패키지 구조
 
 ```
 org.grr.bridgy/
-├── config/
-│   ├── SecurityConfig.kt
-│   ├── WebConfig.kt
-│   ├── RedisConfig.kt
-│   └── jwt/
-│       ├── JwtProvider.kt
-│       └── JwtFilter.kt
+├── common/
+│   ├── config/
+│   │   ├── SecurityConfig.kt
+│   │   ├── WebConfig.kt
+│   │   ├── RedisConfig.kt
+│   │   ├── SwaggerConfig.kt
+│   │   └── GlobalExceptionHandler.kt
+│   ├── exception/
+│   │   ├── CustomException.kt
+│   │   └── ErrorResponse.kt
+│   ├── jwt/
+│   │   ├── JwtProvider.kt
+│   │   └── JwtFilter.kt
+│   └── BaseTime.kt
 ├── domain/
-│   ├── common/
-│   │   └── BaseTime.kt
 │   ├── auth/
 │   │   ├── controller/
 │   │   │   ├── AuthControllerV0.kt
@@ -185,21 +335,23 @@ org.grr.bridgy/
 └── BridgyApplication.kt
 ```
 
-## 7. 새 도메인 추가 체크리스트
+## 9. 새 도메인 추가 체크리스트
 
 새로운 도메인(예: `notification`)을 추가할 때:
 
 1. **엔티티**: `domain/{도메인}/entity/` 에 생성, `BaseTime()` 상속
 2. **Repository**: `domain/{도메인}/repository/` 에 JpaRepository 인터페이스
 3. **DTO**: `domain/{도메인}/dto/` 에 Request/Response DTO
-4. **Service**: `domain/{도메인}/service/` 에 비즈니스 로직
+4. **Service**: `domain/{도메인}/service/` 에 비즈니스 로직, 예외는 `CustomException` 사용
 5. **Controller V0**: 공개 조회 API가 있으면 `{Domain}ControllerV0.kt` 생성
 6. **Controller V1**: 인증 필요 API가 있으면 `{Domain}ControllerV1.kt` 생성
-7. **SecurityConfig 수정 불필요**: v0/v1 경로 규칙을 따르면 자동으로 인증 여부가 결정됨
+7. **테스트**: `{Domain}IntegrationTest.kt` 생성, `BaseIntegrationTest` 상속, V0/V1 모두 테스트
+8. **SecurityConfig 수정 불필요**: v0/v1 경로 규칙을 따르면 자동으로 인증 여부가 결정됨
 
-## 8. 기술 스택
+## 10. 기술 스택
 
-- Kotlin 2.0+, JDK 17
+- Kotlin 2.0+, JDK 21
+- Virtual Threads 활성화 (`spring.threads.virtual.enabled: true`)
 - Spring Boot 3.5+
 - Spring Data JPA + Hibernate
 - PostgreSQL (프로덕션), H2 (로컬/테스트)

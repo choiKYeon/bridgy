@@ -1,5 +1,6 @@
 package org.grr.bridgy.domain.pet.service
 
+import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.domain.comment.repository.CommentRepository
 import org.grr.bridgy.domain.gallery.repository.GalleryRepository
 import org.grr.bridgy.domain.like.repository.LikeRepository
@@ -10,6 +11,7 @@ import org.grr.bridgy.domain.pet.dto.UpdatePetRequest
 import org.grr.bridgy.domain.pet.entity.Pet
 import org.grr.bridgy.domain.pet.repository.PetRepository
 import org.grr.bridgy.domain.user.repository.UserRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -27,7 +29,7 @@ class PetService(
     @Transactional
     fun createPet(request: CreatePetRequest): PetResponse {
         val user = userRepository.findById(request.userId)
-            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다. id=${request.userId}") }
+            .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=${request.userId}", HttpStatus.NOT_FOUND) }
 
         val pet = Pet(
             user = user,
@@ -45,7 +47,7 @@ class PetService(
 
     fun getPetById(petId: Long): PetResponse {
         val pet = petRepository.findById(petId)
-            .orElseThrow { IllegalArgumentException("반려동물을 찾을 수 없습니다. id=$petId") }
+            .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND) }
         return PetResponse.from(pet)
     }
 
@@ -68,7 +70,7 @@ class PetService(
     @Transactional
     fun updatePet(petId: Long, request: UpdatePetRequest): PetResponse {
         val pet = petRepository.findById(petId)
-            .orElseThrow { IllegalArgumentException("반려동물을 찾을 수 없습니다. id=$petId") }
+            .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND) }
 
         request.name?.let { pet.name = it }
         request.species?.let { pet.species = it }
@@ -85,7 +87,9 @@ class PetService(
 
     @Transactional
     fun deletePet(petId: Long) {
-        require(petRepository.existsById(petId)) { "반려동물을 찾을 수 없습니다. id=$petId" }
+        if (!petRepository.existsById(petId)) {
+            throw CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND)
+        }
         petRepository.deleteById(petId)
     }
 
@@ -105,7 +109,7 @@ class PetService(
 
     fun getPetDetail(petId: Long, currentUserId: Long? = null): PetDashboardResponse {
         val pet = petRepository.findById(petId)
-            .orElseThrow { IllegalArgumentException("반려동물을 찾을 수 없습니다. id=$petId") }
+            .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND) }
         return toDashboardResponse(pet, currentUserId)
     }
 

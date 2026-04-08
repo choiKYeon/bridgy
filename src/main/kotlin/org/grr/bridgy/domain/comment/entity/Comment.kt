@@ -1,7 +1,7 @@
 package org.grr.bridgy.domain.comment.entity
 
 import jakarta.persistence.*
-import org.grr.bridgy.domain.common.BaseTime
+import org.grr.bridgy.common.BaseTime
 import org.grr.bridgy.domain.pet.entity.Pet
 import org.grr.bridgy.domain.user.entity.User
 

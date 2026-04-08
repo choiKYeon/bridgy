@@ -1,4 +1,4 @@
-package org.grr.bridgy.config
+package org.grr.bridgy.common.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature

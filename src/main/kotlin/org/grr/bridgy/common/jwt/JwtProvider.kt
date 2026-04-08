@@ -1,4 +1,4 @@
-package org.grr.bridgy.config.jwt
+package org.grr.bridgy.common.jwt
 
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException

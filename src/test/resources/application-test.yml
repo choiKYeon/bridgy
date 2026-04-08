@@ -26,6 +26,11 @@ spring:
     property-naming-strategy: SNAKE_CASE
     default-property-inclusion: non_null
 
+jwt:
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci1icmlkZ3ktand0LXRlc3QtMTIzNDU2Nzg5MA==
+  access-token-expiration: 1800000
+  refresh-token-expiration: 604800000
+
 server:
   port: 0
 

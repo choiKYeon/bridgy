@@ -1,5 +1,6 @@
 package org.grr.bridgy.domain.comment.service
 
+import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.domain.comment.dto.CommentResponse
 import org.grr.bridgy.domain.comment.dto.CreateCommentRequest
 import org.grr.bridgy.domain.comment.dto.UpdateCommentRequest
@@ -7,6 +8,7 @@ import org.grr.bridgy.domain.comment.entity.Comment
 import org.grr.bridgy.domain.comment.repository.CommentRepository
 import org.grr.bridgy.domain.pet.repository.PetRepository
 import org.grr.bridgy.domain.user.repository.UserRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -22,9 +24,9 @@ class CommentService(
     @Transactional
     fun createComment(request: CreateCommentRequest): CommentResponse {
         val pet = petRepository.findById(request.petId)
-            .orElseThrow { IllegalArgumentException("반려동물을 찾을 수 없습니다. id=${request.petId}") }
+            .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
         val user = userRepository.findById(request.userId)
-            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다. id=${request.userId}") }
+            .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=${request.userId}", HttpStatus.NOT_FOUND) }
 
         val comment = Comment(
             pet = pet,
@@ -46,7 +48,7 @@ class CommentService(
     @Transactional
     fun updateComment(commentId: Long, request: UpdateCommentRequest): CommentResponse {
         val comment = commentRepository.findById(commentId)
-            .orElseThrow { IllegalArgumentException("댓글을 찾을 수 없습니다. id=$commentId") }
+            .orElseThrow { CustomException("댓글을 찾을 수 없습니다. id=$commentId", HttpStatus.NOT_FOUND) }
 
         comment.content = request.content
         comment.updatedAt = LocalDateTime.now()
@@ -56,7 +58,9 @@ class CommentService(
 
     @Transactional
     fun deleteComment(commentId: Long) {
-        require(commentRepository.existsById(commentId)) { "댓글을 찾을 수 없습니다. id=$commentId" }
+        if (!commentRepository.existsById(commentId)) {
+            throw CustomException("댓글을 찾을 수 없습니다. id=$commentId", HttpStatus.NOT_FOUND)
+        }
         commentRepository.deleteById(commentId)
     }
 }

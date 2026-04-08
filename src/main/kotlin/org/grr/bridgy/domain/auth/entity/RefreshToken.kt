@@ -1,7 +1,7 @@
 package org.grr.bridgy.domain.auth.entity
 
 import jakarta.persistence.*
-import org.grr.bridgy.domain.common.BaseTime
+import org.grr.bridgy.common.BaseTime
 
 @Entity
 @Table(name = "refresh_tokens")
