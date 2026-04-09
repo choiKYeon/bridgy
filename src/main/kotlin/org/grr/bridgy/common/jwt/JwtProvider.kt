@@ -24,21 +24,22 @@ class JwtProvider(
         Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret))
     }
 
-    fun createAccessToken(userId: Long, email: String): String {
-        return createToken(userId, email, accessTokenExpiration, "access")
+    fun createAccessToken(userId: Long, email: String, role: String = "USER"): String {
+        return createToken(userId, email, role, accessTokenExpiration, "access")
     }
 
-    fun createRefreshToken(userId: Long, email: String): String {
-        return createToken(userId, email, refreshTokenExpiration, "refresh")
+    fun createRefreshToken(userId: Long, email: String, role: String = "USER"): String {
+        return createToken(userId, email, role, refreshTokenExpiration, "refresh")
     }
 
-    private fun createToken(userId: Long, email: String, expiration: Long, tokenType: String): String {
+    private fun createToken(userId: Long, email: String, role: String, expiration: Long, tokenType: String): String {
         val now = Date()
         val expireDate = Date(now.time + expiration)
 
         return Jwts.builder()
             .subject(userId.toString())
             .claim("email", email)
+            .claim("role", role)
             .claim("type", tokenType)
             .issuedAt(now)
             .expiration(expireDate)
@@ -49,7 +50,8 @@ class JwtProvider(
     fun getAuthentication(token: String): Authentication {
         val claims = parseClaims(token)
         val userId = claims.subject
-        val authorities = listOf(SimpleGrantedAuthority("ROLE_USER"))
+        val role = claims["role"] as? String ?: "USER"
+        val authorities = listOf(SimpleGrantedAuthority("ROLE_$role"))
         val principal = User(userId, "", authorities)
         return UsernamePasswordAuthenticationToken(principal, token, authorities)
     }

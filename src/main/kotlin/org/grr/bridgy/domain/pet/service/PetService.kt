@@ -1,7 +1,10 @@
 package org.grr.bridgy.domain.pet.service
 
+import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.domain.comment.repository.CommentRepository
+import org.grr.bridgy.domain.decoration.dto.PetDecorationResponse
+import org.grr.bridgy.domain.decoration.repository.PetDecorationRepository
 import org.grr.bridgy.domain.gallery.repository.GalleryRepository
 import org.grr.bridgy.domain.like.repository.LikeRepository
 import org.grr.bridgy.domain.pet.dto.CreatePetRequest
@@ -11,6 +14,9 @@ import org.grr.bridgy.domain.pet.dto.UpdatePetRequest
 import org.grr.bridgy.domain.pet.entity.Pet
 import org.grr.bridgy.domain.pet.repository.PetRepository
 import org.grr.bridgy.domain.user.repository.UserRepository
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,13 +29,22 @@ class PetService(
     private val userRepository: UserRepository,
     private val likeRepository: LikeRepository,
     private val commentRepository: CommentRepository,
-    private val galleryRepository: GalleryRepository
+    private val galleryRepository: GalleryRepository,
+    private val petDecorationRepository: PetDecorationRepository
 ) {
 
     @Transactional
     fun createPet(request: CreatePetRequest): PetResponse {
         val user = userRepository.findById(request.userId)
             .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=${request.userId}", HttpStatus.NOT_FOUND) }
+
+        val currentPetCount = petRepository.countByUserId(request.userId)
+        if (currentPetCount >= FreeTierLimits.MAX_PETS_PER_USER) {
+            throw CustomException(
+                "반려동물은 최대 ${FreeTierLimits.MAX_PETS_PER_USER}마리까지 등록할 수 있습니다. (현재: ${currentPetCount}마리)",
+                HttpStatus.BAD_REQUEST
+            )
+        }
 
         val pet = Pet(
             user = user,
@@ -57,10 +72,6 @@ class PetService(
 
     fun getAllPets(): List<PetResponse> {
         return petRepository.findAll().map { PetResponse.from(it) }
-    }
-
-    fun searchPetsByName(name: String): List<PetResponse> {
-        return petRepository.findByNameContaining(name).map { PetResponse.from(it) }
     }
 
     fun getPetsBySpecies(species: String): List<PetResponse> {
@@ -93,17 +104,33 @@ class PetService(
         petRepository.deleteById(petId)
     }
 
+    fun searchPetsByNamePaged(name: String, pageable: Pageable): Page<PetResponse> {
+        val safePageable = capPageSize(pageable)
+        return petRepository.findByNameContaining(name, safePageable).map { PetResponse.from(it) }
+    }
+
     // ─── 대시보드 / 피드 ───
 
-    fun getPopularPets(currentUserId: Long? = null): List<PetDashboardResponse> {
-        return petRepository.findAllOrderByLikeCountDesc().map { pet ->
+    fun getPopularPets(currentUserId: Long? = null, pageable: Pageable): Page<PetDashboardResponse> {
+        val safePageable = capPageSize(pageable)
+        return petRepository.findAllOrderByLikeCountDesc(safePageable).map { pet ->
             toDashboardResponse(pet, currentUserId)
         }
     }
 
-    fun getRecentPets(currentUserId: Long? = null): List<PetDashboardResponse> {
-        return petRepository.findAllByOrderByCreatedAtDesc().map { pet ->
+    fun getRecentPets(currentUserId: Long? = null, pageable: Pageable): Page<PetDashboardResponse> {
+        val safePageable = capPageSize(pageable)
+        return petRepository.findAllByOrderByCreatedAtDesc(safePageable).map { pet ->
             toDashboardResponse(pet, currentUserId)
+        }
+    }
+
+    private fun capPageSize(pageable: Pageable): Pageable {
+        val maxSize = FreeTierLimits.MAX_PAGE_SIZE
+        return if (pageable.pageSize > maxSize) {
+            PageRequest.of(pageable.pageNumber, maxSize, pageable.sort)
+        } else {
+            pageable
         }
     }
 
@@ -118,13 +145,15 @@ class PetService(
         val commentCount = commentRepository.countByPetId(pet.id)
         val galleryCount = galleryRepository.countByPetId(pet.id)
         val isLiked = currentUserId?.let { likeRepository.existsByPetIdAndUserId(pet.id, it) } ?: false
+        val decorations = petDecorationRepository.findByPetId(pet.id).map { PetDecorationResponse.from(it) }
 
         return PetDashboardResponse.from(
             pet = pet,
             likeCount = likeCount,
             commentCount = commentCount,
             galleryCount = galleryCount,
-            isLiked = isLiked
+            isLiked = isLiked,
+            decorations = decorations
         )
     }
 }

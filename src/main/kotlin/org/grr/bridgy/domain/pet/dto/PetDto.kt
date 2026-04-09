@@ -1,5 +1,6 @@
 package org.grr.bridgy.domain.pet.dto
 
+import org.grr.bridgy.domain.decoration.dto.PetDecorationResponse
 import org.grr.bridgy.domain.pet.entity.Pet
 import org.grr.bridgy.domain.pet.entity.PetGender
 import java.time.LocalDateTime
@@ -76,6 +77,7 @@ data class PetDashboardResponse(
     val commentCount: Long,
     val galleryCount: Long,
     val isLiked: Boolean,
+    val decorations: List<PetDecorationResponse>,
     val createdAt: LocalDateTime
 ) {
     companion object {
@@ -84,7 +86,8 @@ data class PetDashboardResponse(
             likeCount: Long,
             commentCount: Long,
             galleryCount: Long,
-            isLiked: Boolean = false
+            isLiked: Boolean = false,
+            decorations: List<PetDecorationResponse> = emptyList()
         ) = PetDashboardResponse(
             id = pet.id,
             userId = pet.user.id,
@@ -101,6 +104,7 @@ data class PetDashboardResponse(
             commentCount = commentCount,
             galleryCount = galleryCount,
             isLiked = isLiked,
+            decorations = decorations,
             createdAt = pet.createdAt
         )
     }

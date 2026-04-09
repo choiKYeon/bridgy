@@ -32,8 +32,8 @@ class AuthService(
             throw CustomException("이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED)
         }
 
-        val accessToken = jwtProvider.createAccessToken(user.id, user.email)
-        val refreshToken = jwtProvider.createRefreshToken(user.id, user.email)
+        val accessToken = jwtProvider.createAccessToken(user.id, user.email, user.role.name)
+        val refreshToken = jwtProvider.createRefreshToken(user.id, user.email, user.role.name)
 
         saveRefreshToken(user.id, refreshToken)
 
@@ -56,8 +56,8 @@ class AuthService(
         val user = userRepository.findById(refreshToken.userId)
             .orElseThrow { CustomException("사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND) }
 
-        val newAccessToken = jwtProvider.createAccessToken(user.id, user.email)
-        val newRefreshToken = jwtProvider.createRefreshToken(user.id, user.email)
+        val newAccessToken = jwtProvider.createAccessToken(user.id, user.email, user.role.name)
+        val newRefreshToken = jwtProvider.createRefreshToken(user.id, user.email, user.role.name)
 
         saveRefreshToken(user.id, newRefreshToken)
 

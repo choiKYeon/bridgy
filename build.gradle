@@ -61,6 +61,21 @@ kotlin {
 
 tasks.named('test') {
     useJUnitPlatform()
+
+    // 테스트 실행 결과를 콘솔에 출력
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = false
+        exceptionFormat = 'full'
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "\n────────────────────────────────────────"
+                println "테스트 결과: ${result.resultType}"
+                println "총 ${result.testCount}개 | 성공 ${result.successfulTestCount}개 | 실패 ${result.failedTestCount}개 | 스킵 ${result.skippedTestCount}개"
+                println "────────────────────────────────────────\n"
+            }
+        }
+    }
 }
 
 // bootRun 실행 전 반드시 테스트 통과해야 함

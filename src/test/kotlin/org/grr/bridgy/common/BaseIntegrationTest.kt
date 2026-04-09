@@ -59,7 +59,7 @@ abstract class BaseIntegrationTest {
      * 해당 사용자의 JWT Access Token 생성
      */
     protected fun accessTokenFor(user: User): String {
-        return jwtProvider.createAccessToken(user.id, user.email)
+        return jwtProvider.createAccessToken(user.id, user.email, user.role.name)
     }
 
     /**

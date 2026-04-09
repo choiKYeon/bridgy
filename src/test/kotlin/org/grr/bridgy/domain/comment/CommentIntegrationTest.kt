@@ -1,6 +1,7 @@
 package org.grr.bridgy.domain.comment
 
 import org.grr.bridgy.common.BaseIntegrationTest
+import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.domain.comment.dto.CreateCommentRequest
 import org.grr.bridgy.domain.comment.dto.UpdateCommentRequest
 import org.grr.bridgy.domain.comment.entity.Comment
@@ -81,6 +82,50 @@ class CommentIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(4)
+    fun `V1 댓글 작성 실패 - 글자수 초과`() {
+        val (_, commenter, pet) = setup()
+        val longContent = "가".repeat(FreeTierLimits.MAX_COMMENT_LENGTH + 1)
+        val request = CreateCommentRequest(
+            petId = pet.id, userId = commenter.id, content = longContent
+        )
+
+        mockMvc.perform(
+            post("/api/v1/comments")
+                .withAuth(commenter)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isBadRequest)
+
+        Assertions.assertEquals(0, commentRepository.countByPetId(pet.id))
+    }
+
+    @Test
+    @Order(5)
+    fun `V1 댓글 작성 실패 - 일일 댓글 수 초과`() {
+        val (_, commenter, pet) = setup()
+
+        // 일일 최대치까지 댓글 저장
+        repeat(FreeTierLimits.MAX_COMMENTS_PER_USER_PER_DAY) { i ->
+            commentRepository.save(Comment(pet = pet, user = commenter, content = "댓글$i"))
+        }
+
+        // 하나 더 작성 시도 → 실패
+        val request = CreateCommentRequest(
+            petId = pet.id, userId = commenter.id, content = "한 개 더"
+        )
+
+        mockMvc.perform(
+            post("/api/v1/comments")
+                .withAuth(commenter)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isTooManyRequests)
+    }
+
+    @Test
+    @Order(6)
     fun `V1 댓글 작성 실패 - 존재하지 않는 펫`() {
         val (_, commenter, _) = setup()
         val request = CreateCommentRequest(petId = 99999, userId = commenter.id, content = "테스트")
@@ -95,7 +140,7 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(5)
+    @Order(7)
     fun `V1 댓글 작성 실패 - 인증 없음`() {
         val request = CreateCommentRequest(petId = 1, userId = 1, content = "테스트")
 
@@ -108,7 +153,7 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(6)
+    @Order(8)
     fun `V1 댓글 수정 성공`() {
         val (_, commenter, pet) = setup()
         val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "원래 댓글"))
@@ -128,7 +173,28 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(7)
+    @Order(9)
+    fun `V1 댓글 수정 실패 - 글자수 초과`() {
+        val (_, commenter, pet) = setup()
+        val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "원래 댓글"))
+        val longContent = "나".repeat(FreeTierLimits.MAX_COMMENT_LENGTH + 1)
+        val updateRequest = UpdateCommentRequest(content = longContent)
+
+        mockMvc.perform(
+            put("/api/v1/comments/${comment.id}")
+                .withAuth(commenter)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(updateRequest))
+        )
+            .andExpect(status().isBadRequest)
+
+        // 원본 유지 확인
+        val unchanged = commentRepository.findById(comment.id).get()
+        Assertions.assertEquals("원래 댓글", unchanged.content)
+    }
+
+    @Test
+    @Order(10)
     fun `V1 댓글 삭제 성공`() {
         val (_, commenter, pet) = setup()
         val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "삭제될 댓글"))
@@ -142,7 +208,7 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(8)
+    @Order(11)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, commentRepository.count())
     }

@@ -38,3 +38,5 @@ logging:
   level:
     org.grr.bridgy: DEBUG
     org.springframework.web: INFO
+    org.springframework.test.context.transaction: INFO
+    org.springframework.transaction: DEBUG

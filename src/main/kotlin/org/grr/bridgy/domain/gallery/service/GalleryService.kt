@@ -1,5 +1,6 @@
 package org.grr.bridgy.domain.gallery.service
 
+import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.domain.gallery.dto.CreateGalleryRequest
 import org.grr.bridgy.domain.gallery.dto.GalleryResponse
@@ -21,6 +22,14 @@ class GalleryService(
     fun addPhoto(request: CreateGalleryRequest): GalleryResponse {
         val pet = petRepository.findById(request.petId)
             .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
+
+        val currentPhotoCount = galleryRepository.countByPetId(request.petId)
+        if (currentPhotoCount >= FreeTierLimits.MAX_PHOTOS_PER_PET) {
+            throw CustomException(
+                "사진은 반려동물당 최대 ${FreeTierLimits.MAX_PHOTOS_PER_PET}장까지 업로드할 수 있습니다. (현재: ${currentPhotoCount}장)",
+                HttpStatus.BAD_REQUEST
+            )
+        }
 
         val gallery = Gallery(
             pet = pet,

@@ -1,6 +1,7 @@
 package org.grr.bridgy.domain.pet
 
 import org.grr.bridgy.common.BaseIntegrationTest
+import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.domain.comment.entity.Comment
 import org.grr.bridgy.domain.comment.repository.CommentRepository
 import org.grr.bridgy.domain.like.entity.Like
@@ -65,15 +66,16 @@ class PetIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(3)
-    fun `V0 이름으로 검색`() {
+    fun `V0 이름으로 검색 - 페이징`() {
         val user = createPetOwner()
         createTestPet(user, "뽀삐", "강아지")
         createTestPet(user, "뽀미", "강아지")
         createTestPet(user, "나비", "고양이")
 
-        mockMvc.perform(get("/api/v0/pets/search").param("name", "뽀"))
+        mockMvc.perform(get("/api/v0/pets/search").param("name", "뽀").param("page", "0").param("size", "10"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.totalElements").value(2))
     }
 
     @Test
@@ -91,7 +93,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(5)
-    fun `V0 대시보드 - 인기순 피드`() {
+    fun `V0 대시보드 - 인기순 피드 페이징`() {
         val owner = createPetOwner()
         val liker1 = createTestUser("liker1@test.com", nickname = "좋아요유저1")
         val liker2 = createTestUser("liker2@test.com", nickname = "좋아요유저2")
@@ -108,24 +110,26 @@ class PetIntegrationTest : BaseIntegrationTest() {
         likeRepository.save(Like(pet = pet3, user = liker2))
         likeRepository.save(Like(pet = pet2, user = liker1))
 
-        mockMvc.perform(get("/api/v0/pets/feed/popular"))
+        mockMvc.perform(get("/api/v0/pets/feed/popular").param("page", "0").param("size", "2"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.length()").value(3))
-            .andExpect(jsonPath("$[0].name").value("뽀삐"))
-            .andExpect(jsonPath("$[0].like_count").value(3))
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.totalElements").value(3))
+            .andExpect(jsonPath("$.content[0].name").value("뽀삐"))
     }
 
     @Test
     @Order(6)
-    fun `V0 최신순 피드`() {
+    fun `V0 최신순 피드 - 페이지 크기 제한`() {
         val user = createPetOwner()
         createTestPet(user, "첫째", "강아지")
         createTestPet(user, "둘째", "고양이")
         createTestPet(user, "셋째", "토끼")
 
-        mockMvc.perform(get("/api/v0/pets/feed/recent"))
+        // MAX_PAGE_SIZE(20)보다 큰 size 요청 시 20으로 제한
+        mockMvc.perform(get("/api/v0/pets/feed/recent").param("page", "0").param("size", "100"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.length()").value(3))
+            .andExpect(jsonPath("$.content.length()").value(3))
+            .andExpect(jsonPath("$.size").value(FreeTierLimits.MAX_PAGE_SIZE))
     }
 
     // ─── V1 (인증) API 테스트 ───
@@ -154,6 +158,30 @@ class PetIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(8)
+    fun `V1 반려동물 등록 실패 - 최대 등록 수 초과`() {
+        val user = createPetOwner()
+        // 최대 3마리 등록
+        repeat(FreeTierLimits.MAX_PETS_PER_USER) { i ->
+            createTestPet(user, "펫$i", "강아지")
+        }
+
+        val request = CreatePetRequest(
+            userId = user.id, name = "네번째", species = "강아지"
+        )
+
+        mockMvc.perform(
+            post("/api/v1/pets")
+                .withAuth(user)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isBadRequest)
+
+        Assertions.assertEquals(FreeTierLimits.MAX_PETS_PER_USER.toLong(), petRepository.countByUserId(user.id))
+    }
+
+    @Test
+    @Order(9)
     fun `V1 반려동물 등록 실패 - 인증 없음`() {
         val request = CreatePetRequest(
             userId = 1, name = "뽀삐", species = "강아지"
@@ -168,7 +196,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(9)
+    @Order(10)
     fun `V1 반려동물 수정`() {
         val user = createPetOwner()
         val pet = createTestPet(user)
@@ -188,7 +216,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(10)
+    @Order(11)
     fun `V1 반려동물 삭제`() {
         val user = createPetOwner()
         val pet = createTestPet(user)
@@ -202,7 +230,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(11)
+    @Order(12)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, petRepository.count())
         Assertions.assertEquals(0, userRepository.count())

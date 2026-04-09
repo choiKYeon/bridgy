@@ -1,6 +1,7 @@
 package org.grr.bridgy.domain.user.dto
 
 import org.grr.bridgy.domain.user.entity.User
+import org.grr.bridgy.domain.user.entity.UserRole
 import java.time.LocalDateTime
 
 data class SignUpRequest(
@@ -20,6 +21,7 @@ data class UserResponse(
     val id: Long,
     val email: String,
     val nickname: String,
+    val role: UserRole,
     val profileImageUrl: String?,
     val bio: String?,
     val createdAt: LocalDateTime
@@ -29,6 +31,7 @@ data class UserResponse(
             id = user.id,
             email = user.email,
             nickname = user.nickname,
+            role = user.role,
             profileImageUrl = user.profileImageUrl,
             bio = user.bio,
             createdAt = user.createdAt

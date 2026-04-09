@@ -33,6 +33,8 @@ class SecurityConfig(
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     // H2 Console (로컬 개발용)
                     .requestMatchers("/h2-console/**").permitAll()
+                    // Admin API는 ADMIN 또는 SUPER_ADMIN 역할 필요
+                    .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                     // 나머지 전부 인증 필요
                     .anyRequest().authenticated()
             }
