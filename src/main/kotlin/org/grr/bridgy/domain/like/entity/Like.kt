@@ -8,7 +8,11 @@ import org.grr.bridgy.domain.user.entity.User
 @Entity
 @Table(
     name = "likes",
-    uniqueConstraints = [UniqueConstraint(columnNames = ["pet_id", "user_id"])]
+    uniqueConstraints = [UniqueConstraint(columnNames = ["pet_id", "user_id"])],
+    indexes = [
+        Index(name = "idx_like_pet_id", columnList = "pet_id"),
+        Index(name = "idx_like_user_id", columnList = "user_id")
+    ]
 )
 class Like(
     @Id

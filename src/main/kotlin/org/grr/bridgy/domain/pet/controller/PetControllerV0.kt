@@ -70,8 +70,14 @@ class PetControllerV0(
         ]
     )
     @GetMapping
-    fun getAllPets(): ResponseEntity<List<PetResponse>> {
-        return ResponseEntity.ok(petService.getAllPets())
+    fun getAllPets(
+        @Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
+        @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "페이지 크기 (기본값: 20, 최대값: 20)", example = "20")
+        @RequestParam(defaultValue = "20") size: Int
+    ): ResponseEntity<Page<PetResponse>> {
+        val pageable = PageRequest.of(page, size.coerceAtMost(FreeTierLimits.MAX_PAGE_SIZE))
+        return ResponseEntity.ok(petService.getAllPets(pageable))
     }
 
     @Operation(
@@ -167,9 +173,14 @@ class PetControllerV0(
             example = "강아지",
             required = true
         )
-        @PathVariable species: String
-    ): ResponseEntity<List<PetResponse>> {
-        return ResponseEntity.ok(petService.getPetsBySpecies(species))
+        @PathVariable species: String,
+        @Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
+        @RequestParam(defaultValue = "0") page: Int,
+        @Parameter(description = "페이지 크기 (기본값: 20, 최대값: 20)", example = "20")
+        @RequestParam(defaultValue = "20") size: Int
+    ): ResponseEntity<Page<PetResponse>> {
+        val pageable = PageRequest.of(page, size.coerceAtMost(FreeTierLimits.MAX_PAGE_SIZE))
+        return ResponseEntity.ok(petService.getPetsBySpecies(species, pageable))
     }
 
     @Operation(

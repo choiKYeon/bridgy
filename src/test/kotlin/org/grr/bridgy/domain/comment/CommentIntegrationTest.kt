@@ -195,6 +195,21 @@ class CommentIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(10)
+    fun `V1 댓글 수정 실패 - 존재하지 않는 댓글 ID`() {
+        val (_, commenter, _) = setup()
+        val updateRequest = UpdateCommentRequest(content = "수정 시도")
+
+        mockMvc.perform(
+            put("/api/v1/comments/99999")
+                .withAuth(commenter)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(updateRequest))
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    @Order(11)
     fun `V1 댓글 삭제 성공`() {
         val (_, commenter, pet) = setup()
         val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "삭제될 댓글"))
@@ -208,7 +223,30 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(11)
+    @Order(12)
+    fun `V1 댓글 삭제 실패 - 존재하지 않는 댓글 ID`() {
+        val (_, commenter, _) = setup()
+
+        mockMvc.perform(
+            delete("/api/v1/comments/99999").withAuth(commenter)
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    @Order(13)
+    fun `V1 댓글 삭제 실패 - 인증 없음`() {
+        val (_, commenter, pet) = setup()
+        val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "댓글"))
+
+        mockMvc.perform(
+            delete("/api/v1/comments/${comment.id}")
+        )
+            .andExpect(status().is4xxClientError)
+    }
+
+    @Test
+    @Order(14)
     fun `V1 댓글 작성 실패 - 비속어 포함`() {
         val (_, commenter, pet) = setup()
         val request = CreateCommentRequest(petId = pet.id, userId = commenter.id, content = "진짜 씨발 귀엽다")
@@ -225,7 +263,7 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(12)
+    @Order(15)
     fun `V1 댓글 수정 실패 - 비속어 포함`() {
         val (_, commenter, pet) = setup()
         val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "좋은 댓글"))
@@ -244,7 +282,7 @@ class CommentIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(13)
+    @Order(16)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, commentRepository.count())
     }

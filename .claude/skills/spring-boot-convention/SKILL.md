@@ -360,3 +360,124 @@ org.grr.bridgy/
 - Spring Security (Stateless, BCrypt)
 - Swagger: springdoc-openapi
 - Jackson: SNAKE_CASE 전략
+- Kafka: spring-kafka (KRaft mode, no ZooKeeper)
+
+## 11. 운영 안전성 체크리스트
+
+새 기능을 추가하거나 코드 리뷰 시 반드시 아래 항목을 확인한다.
+
+### 11-1. DB 인덱스
+모든 JPA 엔티티에서 조회/필터에 자주 쓰이는 컬럼에 `@Index`를 선언한다.
+
+```kotlin
+@Table(name = "pets", indexes = [
+    Index(name = "idx_pet_user_id", columnList = "user_id"),
+    Index(name = "idx_pet_species",  columnList = "species")
+])
+```
+
+기준:
+- FK 컬럼(`user_id`, `pet_id` 등)은 반드시 인덱스
+- WHERE/ORDER BY에 사용되는 컬럼도 인덱스
+- `email`, `nickname` 같이 고유성 검색에 쓰이는 컬럼도 인덱스
+
+### 11-2. 페이징 필수
+`List<T>` 반환 API는 데이터가 늘어날수록 OOM, 느린 쿼리의 원인이 된다. 공개 목록 조회 API는 반드시 `Page<T>` + `Pageable`로 만든다.
+
+```kotlin
+// 서비스
+fun getAllPets(pageable: Pageable): Page<PetResponse> {
+    val safePageable = capPageSize(pageable)   // MAX_PAGE_SIZE로 상한 제한
+    return petRepository.findAll(safePageable).map { PetResponse.from(it) }
+}
+
+// 컨트롤러
+@GetMapping
+fun getAllPets(@RequestParam(defaultValue = "0") page: Int,
+              @RequestParam(defaultValue = "20") size: Int): ResponseEntity<Page<PetResponse>> {
+    val pageable = PageRequest.of(page, size.coerceAtMost(FreeTierLimits.MAX_PAGE_SIZE))
+    return ResponseEntity.ok(petService.getAllPets(pageable))
+}
+```
+
+`capPageSize()` 헬퍼를 서비스에 두어 클라이언트가 임의로 size를 크게 요청해도 상한에 걸리게 한다.
+
+### 11-3. JPQL JOIN 문법
+Spring Data JPA JPQL은 `JOIN ... ON` 문법을 지원하지 않는다. 엔티티 연관관계가 없는 컬럼 기준 조인은 서브쿼리로 대체한다.
+
+```kotlin
+// 잘못된 예 (컴파일 오류)
+@Query("SELECT p FROM Pet p LEFT JOIN Like l ON l.pet.id = p.id ORDER BY COUNT(l) DESC")
+
+// 올바른 예
+@Query("SELECT p FROM Pet p ORDER BY (SELECT COUNT(l) FROM Like l WHERE l.pet = p) DESC")
+```
+
+### 11-4. 캐시 적중 (Cache Hit-through)
+서비스 A가 서비스 B의 `@Cacheable` 메서드를 직접 호출해야 캐시가 적중한다.
+같은 서비스 내 메서드 호출은 프록시를 거치지 않아 캐시가 동작하지 않는다.
+
+- `PetService.toDashboardResponse()`에서 likeCount/commentCount/galleryCount를 구할 때 각 서비스의 `getLikeCount()`, `getCommentCount()`, `getPhotoCount()`를 호출한다.
+- 동일 클래스 내 `@Cacheable` 메서드를 `this.xxx()`로 호출하면 캐시가 무시된다.
+
+### 11-5. 카운트 캐시 & 이중 퇴거 (Dual Eviction)
+카운트(좋아요 수, 댓글 수, 사진 수)는 별도 캐시 키로 관리하고, 데이터 변경 시 목록 캐시와 카운트 캐시를 함께 퇴거한다.
+
+```kotlin
+@Transactional
+@Caching(evict = [
+    CacheEvict("gallery", key = "#request.petId"),
+    CacheEvict("galleryCounts", key = "#request.petId")
+])
+fun addPhoto(request: CreateGalleryRequest): GalleryResponse { ... }
+
+@Cacheable("galleryCounts", key = "#petId")
+fun getPhotoCount(petId: Long): Long = galleryRepository.countByPetId(petId)
+```
+
+캐시별 TTL 기준 (RedisConfig):
+- `pets`, `petsByUser`: 15~30분
+- `gallery`, `healthRecords`: 10분
+- `dailyRecords`: 5분
+- `galleryCounts`: 5분
+- `likeCounts`, `commentCounts`: 1분 (변경 빈도가 높으므로 짧게)
+
+### 11-6. HikariCP 커넥션 풀
+`database.yml`에 반드시 HikariCP 설정을 포함한다. 기본값 그대로 두면 커넥션이 부족하거나 너무 많이 열릴 수 있다.
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20     # CPU 코어수 × 2 기준, 트래픽에 맞게 조정
+      minimum-idle: 5
+      idle-timeout: 600000      # 10분
+      connection-timeout: 30000  # 30초
+      max-lifetime: 1800000     # 30분
+```
+
+### 11-7. Redis ↔ DB 하이브리드 (RefreshToken)
+RefreshToken은 Redis를 1차, DB를 2차 저장소로 사용한다. Redis 장애 시에도 DB로 폴백하여 사용자가 재로그인하지 않아도 된다.
+
+- `RefreshTokenRedisRepository`: `@Profile("!test")`로 테스트 환경에서 제외
+- `AuthService`: `Optional<RefreshTokenRedisRepository>` 주입으로 테스트 환경 호환
+- Redis 미스 시 DB에서 조회 후 남은 TTL 계산하여 Redis에 재저장
+
+### 11-8. 테스트 환경 분리 패턴
+Redis, Kafka 등 외부 인프라 의존 빈은 `@Profile("!test")`로 테스트 환경에서 제외하고, 해당 빈을 사용하는 서비스에서는 `Optional<T>` 주입 패턴을 사용한다.
+
+```kotlin
+// 빈 정의
+@Component
+@Profile("!test")
+class RefreshTokenRedisRepository(...) { ... }
+
+// 주입 (AuthService)
+class AuthService(
+    private val redisRepo: Optional<RefreshTokenRedisRepository>
+) {
+    private fun saveToRedis(...) {
+        redisRepo.ifPresent { it.save(...) }
+    }
+}
+```

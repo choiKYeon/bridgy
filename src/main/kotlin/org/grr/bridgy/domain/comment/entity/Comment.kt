@@ -6,7 +6,10 @@ import org.grr.bridgy.domain.pet.entity.Pet
 import org.grr.bridgy.domain.user.entity.User
 
 @Entity
-@Table(name = "comments")
+@Table(name = "comments", indexes = [
+    Index(name = "idx_comment_pet_id", columnList = "pet_id"),
+    Index(name = "idx_comment_user_id", columnList = "user_id")
+])
 class Comment(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

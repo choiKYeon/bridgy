@@ -6,11 +6,12 @@ import org.grr.bridgy.common.filter.ProfanityFilter
 import org.springframework.cache.annotation.CacheEvict
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.cache.annotation.Caching
-import org.grr.bridgy.domain.comment.repository.CommentRepository
+import org.grr.bridgy.domain.comment.service.CommentService
 import org.grr.bridgy.domain.decoration.dto.PetDecorationResponse
 import org.grr.bridgy.domain.decoration.repository.PetDecorationRepository
-import org.grr.bridgy.domain.gallery.repository.GalleryRepository
+import org.grr.bridgy.domain.gallery.service.GalleryService
 import org.grr.bridgy.domain.like.repository.LikeRepository
+import org.grr.bridgy.domain.like.service.LikeService
 import org.grr.bridgy.domain.pet.dto.CreatePetRequest
 import org.grr.bridgy.domain.pet.dto.PetDashboardResponse
 import org.grr.bridgy.domain.pet.dto.PetResponse
@@ -32,8 +33,9 @@ class PetService(
     private val petRepository: PetRepository,
     private val userRepository: UserRepository,
     private val likeRepository: LikeRepository,
-    private val commentRepository: CommentRepository,
-    private val galleryRepository: GalleryRepository,
+    private val likeService: LikeService,
+    private val commentService: CommentService,
+    private val galleryService: GalleryService,
     private val petDecorationRepository: PetDecorationRepository,
     private val profanityFilter: ProfanityFilter
 ) {
@@ -81,12 +83,14 @@ class PetService(
         return petRepository.findByUserId(userId).map { PetResponse.from(it) }
     }
 
-    fun getAllPets(): List<PetResponse> {
-        return petRepository.findAll().map { PetResponse.from(it) }
+    fun getAllPets(pageable: Pageable): Page<PetResponse> {
+        val safePageable = capPageSize(pageable)
+        return petRepository.findAll(safePageable).map { PetResponse.from(it) }
     }
 
-    fun getPetsBySpecies(species: String): List<PetResponse> {
-        return petRepository.findBySpecies(species).map { PetResponse.from(it) }
+    fun getPetsBySpecies(species: String, pageable: Pageable): Page<PetResponse> {
+        val safePageable = capPageSize(pageable)
+        return petRepository.findBySpecies(species, safePageable).map { PetResponse.from(it) }
     }
 
     @Transactional
@@ -160,9 +164,9 @@ class PetService(
     }
 
     private fun toDashboardResponse(pet: Pet, currentUserId: Long? = null): PetDashboardResponse {
-        val likeCount = likeRepository.countByPetId(pet.id)
-        val commentCount = commentRepository.countByPetId(pet.id)
-        val galleryCount = galleryRepository.countByPetId(pet.id)
+        val likeCount = likeService.getLikeCount(pet.id)
+        val commentCount = commentService.getCommentCount(pet.id)
+        val galleryCount = galleryService.getPhotoCount(pet.id)
         val isLiked = currentUserId?.let { likeRepository.existsByPetIdAndUserId(pet.id, it) } ?: false
         val decorations = petDecorationRepository.findByPetId(pet.id).map { PetDecorationResponse.from(it) }
 

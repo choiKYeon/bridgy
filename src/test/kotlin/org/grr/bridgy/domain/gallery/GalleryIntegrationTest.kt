@@ -54,10 +54,17 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
             .andExpect(jsonPath("$.caption").value("귀여운 뽀삐"))
     }
 
+    @Test
+    @Order(3)
+    fun `V0 사진 단건 조회 실패 - 존재하지 않는 ID`() {
+        mockMvc.perform(get("/api/v0/gallery/99999"))
+            .andExpect(status().isNotFound)
+    }
+
     // ─── V1 (인증) API 테스트 ───
 
     @Test
-    @Order(3)
+    @Order(4)
     fun `V1 사진 업로드 성공`() {
         val (user, pet) = createUserAndPet()
         val request = CreateGalleryRequest(
@@ -80,11 +87,31 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(4)
+    @Order(5)
+    fun `V1 사진 업로드 실패 - caption에 비속어`() {
+        val (user, pet) = createUserAndPet()
+        val request = CreateGalleryRequest(
+            petId = pet.id,
+            imageUrl = "https://example.com/photo.jpg",
+            caption = "씨발 귀엽다"
+        )
+
+        mockMvc.perform(
+            post("/api/v1/gallery")
+                .withAuth(user)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isBadRequest)
+
+        Assertions.assertEquals(0, galleryRepository.countByPetId(pet.id))
+    }
+
+    @Test
+    @Order(6)
     fun `V1 사진 업로드 실패 - 최대 업로드 수 초과`() {
         val (user, pet) = createUserAndPet()
 
-        // 최대 장수까지 채우기
         repeat(FreeTierLimits.MAX_PHOTOS_PER_PET) { i ->
             galleryRepository.save(Gallery(pet = pet, imageUrl = "photo$i.jpg"))
         }
@@ -107,7 +134,7 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(5)
+    @Order(7)
     fun `V1 사진 업로드 실패 - 존재하지 않는 펫`() {
         val (user, _) = createUserAndPet()
         val request = CreateGalleryRequest(petId = 99999, imageUrl = "https://example.com/photo.jpg")
@@ -122,7 +149,7 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(6)
+    @Order(8)
     fun `V1 사진 업로드 실패 - 인증 없음`() {
         val request = CreateGalleryRequest(petId = 1, imageUrl = "https://example.com/photo.jpg")
 
@@ -135,7 +162,7 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(7)
+    @Order(9)
     fun `V1 사진 삭제 성공`() {
         val (user, pet) = createUserAndPet()
         val gallery = galleryRepository.save(Gallery(pet = pet, imageUrl = "photo.jpg"))
@@ -149,7 +176,7 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(8)
+    @Order(10)
     fun `V1 사진 삭제 실패 - 존재하지 않는 ID`() {
         val (user, _) = createUserAndPet()
 
@@ -160,19 +187,28 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(9)
+    @Order(11)
+    fun `V1 사진 삭제 실패 - 인증 없음`() {
+        val (_, pet) = createUserAndPet()
+        val gallery = galleryRepository.save(Gallery(pet = pet, imageUrl = "photo.jpg"))
+
+        mockMvc.perform(
+            delete("/api/v1/gallery/${gallery.id}")
+        )
+            .andExpect(status().is4xxClientError)
+    }
+
+    @Test
+    @Order(12)
     fun `V1 사진 삭제 후 재업로드 가능`() {
         val (user, pet) = createUserAndPet()
 
-        // 최대까지 채우기
         val galleries = (1..FreeTierLimits.MAX_PHOTOS_PER_PET).map { i ->
             galleryRepository.save(Gallery(pet = pet, imageUrl = "photo$i.jpg"))
         }
 
-        // 하나 삭제
         galleryRepository.deleteById(galleries.first().id)
 
-        // 재업로드 가능
         val request = CreateGalleryRequest(petId = pet.id, imageUrl = "new_photo.jpg")
         mockMvc.perform(
             post("/api/v1/gallery")
@@ -184,7 +220,7 @@ class GalleryIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(10)
+    @Order(13)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, galleryRepository.count())
     }

@@ -59,6 +59,7 @@ class RedisConfig {
             "gallery"       to defaultConfig.entryTtl(Duration.ofMinutes(10)),
             "likeCounts"    to defaultConfig.entryTtl(Duration.ofMinutes(1)),
             "commentCounts" to defaultConfig.entryTtl(Duration.ofMinutes(1)),
+            "galleryCounts" to defaultConfig.entryTtl(Duration.ofMinutes(5)),
             "healthRecords" to defaultConfig.entryTtl(Duration.ofMinutes(10)),
             "dailyRecords"  to defaultConfig.entryTtl(Duration.ofMinutes(5))
         )

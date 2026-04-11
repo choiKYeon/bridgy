@@ -2,10 +2,10 @@ package org.grr.bridgy.domain.auth.service
 
 import org.grr.bridgy.common.exception.CustomException
 import org.grr.bridgy.common.jwt.JwtProvider
-import org.grr.bridgy.domain.auth.dto.LoginRequest
-import org.grr.bridgy.domain.auth.dto.TokenRefreshRequest
-import org.grr.bridgy.domain.auth.dto.TokenResponse
+import org.grr.bridgy.domain.auth.dto.*
+import org.grr.bridgy.domain.auth.entity.PasswordResetToken
 import org.grr.bridgy.domain.auth.entity.RefreshToken
+import org.grr.bridgy.domain.auth.repository.PasswordResetTokenRepository
 import org.grr.bridgy.domain.auth.repository.RefreshTokenRedisRepository
 import org.grr.bridgy.domain.auth.repository.RefreshTokenRepository
 import org.grr.bridgy.domain.user.repository.UserRepository
@@ -21,6 +21,7 @@ import java.util.Optional
 class AuthService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
+    private val passwordResetTokenRepository: PasswordResetTokenRepository,
     private val jwtProvider: JwtProvider,
     private val passwordEncoder: PasswordEncoder,
     private val refreshTokenRedisRepository: Optional<RefreshTokenRedisRepository>
@@ -69,14 +70,67 @@ class AuthService(
         refreshTokenRepository.deleteByUserId(userId)
     }
 
-    // Redis 우선 조회 → miss 시 DB 폴백
+    // 아이디(이메일) 찾기 - 닉네임으로 조회 후 마스킹 반환
+    fun findId(request: FindIdRequest): FindIdResponse {
+        val user = userRepository.findByNickname(request.nickname)
+            .orElseThrow { CustomException("해당 닉네임의 사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND) }
+        return FindIdResponse(maskedEmail = maskEmail(user.email))
+    }
+
+    // 비밀번호 찾기 - 이메일 확인 후 재설정 코드 발급
+    @Transactional
+    fun requestPasswordReset(request: FindPasswordRequest): FindPasswordResponse {
+        if (!userRepository.existsByEmail(request.email)) {
+            throw CustomException("등록되지 않은 이메일입니다.", HttpStatus.NOT_FOUND)
+        }
+
+        passwordResetTokenRepository.deleteByEmail(request.email)
+
+        val code = (100000..999999).random().toString()
+        val expiryDate = LocalDateTime.now().plusMinutes(10)
+
+        passwordResetTokenRepository.save(
+            PasswordResetToken(email = request.email, code = code, expiryDate = expiryDate)
+        )
+
+        return FindPasswordResponse(resetCode = code)
+    }
+
+    // 비밀번호 재설정 - 코드 검증 후 비밀번호 변경
+    @Transactional
+    fun resetPassword(request: ResetPasswordRequest) {
+        val resetToken = passwordResetTokenRepository
+            .findByEmailAndCode(request.email, request.resetCode)
+            .orElseThrow { CustomException("인증 코드가 올바르지 않습니다.", HttpStatus.BAD_REQUEST) }
+
+        if (resetToken.expiryDate.isBefore(LocalDateTime.now())) {
+            passwordResetTokenRepository.delete(resetToken)
+            throw CustomException("인증 코드가 만료되었습니다. 다시 요청해주세요.", HttpStatus.BAD_REQUEST)
+        }
+
+        val user = userRepository.findByEmail(request.email)
+            .orElseThrow { CustomException("사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND) }
+
+        user.password = passwordEncoder.encode(request.newPassword)
+        passwordResetTokenRepository.delete(resetToken)
+    }
+
+    private fun maskEmail(email: String): String {
+        val (local, domain) = email.split("@")
+        val masked = if (local.length <= 2) {
+            local.first() + "*".repeat(local.length - 1)
+        } else {
+            local.take(2) + "*".repeat(local.length - 2)
+        }
+        return "$masked@$domain"
+    }
+
     private fun findUserIdByToken(token: String): Long? {
         refreshTokenRedisRepository.orElse(null)?.findUserIdByToken(token)?.let { return it }
 
         val dbToken = refreshTokenRepository.findByToken(token).orElse(null) ?: return null
         if (dbToken.expiryDate.isBefore(LocalDateTime.now())) return null
 
-        // Redis 복구 - 남은 만료 시간으로 재저장
         val remainingMillis = java.time.Duration.between(LocalDateTime.now(), dbToken.expiryDate).toMillis()
         if (remainingMillis > 0) {
             refreshTokenRedisRepository.ifPresent { it.save(dbToken.userId, token, remainingMillis) }

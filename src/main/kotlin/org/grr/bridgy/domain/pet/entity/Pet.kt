@@ -5,7 +5,10 @@ import org.grr.bridgy.common.BaseTime
 import org.grr.bridgy.domain.user.entity.User
 
 @Entity
-@Table(name = "pets")
+@Table(name = "pets", indexes = [
+    Index(name = "idx_pet_user_id", columnList = "user_id"),
+    Index(name = "idx_pet_species", columnList = "species")
+])
 class Pet(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

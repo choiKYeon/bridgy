@@ -4,7 +4,10 @@ import jakarta.persistence.*
 import org.grr.bridgy.common.BaseTime
 
 @Entity
-@Table(name = "refresh_tokens")
+@Table(name = "refresh_tokens", indexes = [
+    Index(name = "idx_refresh_token_user_id", columnList = "user_id"),
+    Index(name = "idx_refresh_token_token", columnList = "token")
+])
 class RefreshToken(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

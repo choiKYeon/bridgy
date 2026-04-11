@@ -160,6 +160,31 @@ class UserIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(10)
+    fun `V1 사용자 수정 실패 - 인증 없음`() {
+        val user = createTestUser()
+        val updateRequest = UpdateUserRequest(nickname = "바꾼닉네임")
+
+        mockMvc.perform(
+            put("/api/v1/users/${user.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(updateRequest))
+        )
+            .andExpect(status().is4xxClientError)
+    }
+
+    @Test
+    @Order(11)
+    fun `V1 사용자 삭제 실패 - 인증 없음`() {
+        val user = createTestUser()
+
+        mockMvc.perform(
+            delete("/api/v1/users/${user.id}")
+        )
+            .andExpect(status().is4xxClientError)
+    }
+
+    @Test
+    @Order(12)
     fun `V0 회원가입 실패 - 비속어 포함 닉네임`() {
         val request = SignUpRequest(
             email = "badnick@example.com",
@@ -178,7 +203,7 @@ class UserIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(11)
+    @Order(13)
     fun `V1 사용자 수정 실패 - 비속어 포함 닉네임`() {
         val user = createTestUser()
         val updateRequest = UpdateUserRequest(nickname = "씨발유저")
@@ -196,7 +221,7 @@ class UserIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(12)
+    @Order(14)
     fun `트랜잭션 롤백 검증 - 이전 테스트 데이터가 없어야 함`() {
         Assertions.assertEquals(0, userRepository.count())
     }

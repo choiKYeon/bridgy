@@ -174,6 +174,21 @@ class DecorationIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(8)
+    fun `V1 데코레이션 장착 실패 - 존재하지 않는 데코레이션 ID`() {
+        val (user, pet) = createUserAndPet()
+        val request = EquipDecorationRequest(petId = pet.id, decorationId = 99999)
+
+        mockMvc.perform(
+            post("/api/v1/decorations/equip")
+                .withAuth(user)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
+    @Order(9)
     fun `V1 데코레이션 장착 실패 - 존재하지 않는 펫`() {
         val (user, _) = createUserAndPet()
         val border = createBasicBorder()
@@ -190,7 +205,7 @@ class DecorationIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(9)
+    @Order(10)
     fun `V1 데코레이션 해제 성공`() {
         val (user, pet) = createUserAndPet()
         val border = createBasicBorder()
@@ -215,7 +230,7 @@ class DecorationIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(10)
+    @Order(11)
     fun `V1 데코레이션 장착 실패 - 인증 없음`() {
         val request = EquipDecorationRequest(petId = 1, decorationId = 1)
 
@@ -228,7 +243,18 @@ class DecorationIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    @Order(11)
+    @Order(12)
+    fun `V1 데코레이션 해제 실패 - 인증 없음`() {
+        val (_, pet) = createUserAndPet()
+
+        mockMvc.perform(
+            delete("/api/v1/decorations/pet/${pet.id}/type/BORDER")
+        )
+            .andExpect(status().is4xxClientError)
+    }
+
+    @Test
+    @Order(13)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, petDecorationRepository.count())
     }

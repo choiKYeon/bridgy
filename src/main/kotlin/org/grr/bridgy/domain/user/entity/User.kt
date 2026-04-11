@@ -5,7 +5,10 @@ import org.grr.bridgy.common.BaseTime
 import org.grr.bridgy.common.enums.SyncableEnum
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = [
+    Index(name = "idx_user_email", columnList = "email"),
+    Index(name = "idx_user_nickname", columnList = "nickname")
+])
 class User(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
