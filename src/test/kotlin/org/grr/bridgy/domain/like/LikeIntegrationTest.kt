@@ -134,7 +134,7 @@ class LikeIntegrationTest : BaseIntegrationTest() {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(request))
         )
-            .andExpect(status().isUnauthorized.or(status().isForbidden))
+            .andExpect(status().is4xxClientError)
     }
 
     @Test

@@ -2,6 +2,9 @@ package org.grr.bridgy.domain.gallery.service
 
 import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.common.exception.CustomException
+import org.grr.bridgy.common.filter.ProfanityFilter
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.grr.bridgy.domain.gallery.dto.CreateGalleryRequest
 import org.grr.bridgy.domain.gallery.dto.GalleryResponse
 import org.grr.bridgy.domain.gallery.entity.Gallery
@@ -15,13 +18,17 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class GalleryService(
     private val galleryRepository: GalleryRepository,
-    private val petRepository: PetRepository
+    private val petRepository: PetRepository,
+    private val profanityFilter: ProfanityFilter
 ) {
 
     @Transactional
+    @CacheEvict("gallery", key = "#request.petId")
     fun addPhoto(request: CreateGalleryRequest): GalleryResponse {
         val pet = petRepository.findById(request.petId)
             .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
+
+        request.caption?.let { profanityFilter.check(it) }
 
         val currentPhotoCount = galleryRepository.countByPetId(request.petId)
         if (currentPhotoCount >= FreeTierLimits.MAX_PHOTOS_PER_PET) {
@@ -39,6 +46,7 @@ class GalleryService(
         return GalleryResponse.from(galleryRepository.save(gallery))
     }
 
+    @Cacheable("gallery", key = "#petId")
     fun getPhotosByPetId(petId: Long): List<GalleryResponse> {
         return galleryRepository.findByPetIdOrderByCreatedAtDesc(petId)
             .map { GalleryResponse.from(it) }
@@ -51,6 +59,7 @@ class GalleryService(
     }
 
     @Transactional
+    @CacheEvict("gallery", allEntries = true)
     fun deletePhoto(photoId: Long) {
         if (!galleryRepository.existsById(photoId)) {
             throw CustomException("사진을 찾을 수 없습니다. id=$photoId", HttpStatus.NOT_FOUND)

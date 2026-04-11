@@ -5,7 +5,6 @@ import io.swagger.v3.oas.models.info.Contact
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.info.License
 import io.swagger.v3.oas.models.security.SecurityScheme
-import io.swagger.v3.oas.models.servers.Server
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -44,12 +43,8 @@ class SwaggerConfig {
                             .name("MIT License")
                     )
             )
-            .servers(
-                listOf(
-                    Server().url("http://localhost:8080").description("로컬 개발 서버"),
-                    Server().url("https://api.bridgy.app").description("프로덕션 서버")
-                )
-            )
+            // 서버 URL을 지정하지 않으면 현재 접속한 주소를 자동으로 사용
+            // (같은 WiFi에서 IP로 접속해도 정상 동작)
             .components(
                 io.swagger.v3.oas.models.Components()
                     .addSecuritySchemes(

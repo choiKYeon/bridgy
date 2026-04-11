@@ -2,6 +2,10 @@ package org.grr.bridgy.domain.pet.service
 
 import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.common.exception.CustomException
+import org.grr.bridgy.common.filter.ProfanityFilter
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
+import org.springframework.cache.annotation.Caching
 import org.grr.bridgy.domain.comment.repository.CommentRepository
 import org.grr.bridgy.domain.decoration.dto.PetDecorationResponse
 import org.grr.bridgy.domain.decoration.repository.PetDecorationRepository
@@ -30,13 +34,18 @@ class PetService(
     private val likeRepository: LikeRepository,
     private val commentRepository: CommentRepository,
     private val galleryRepository: GalleryRepository,
-    private val petDecorationRepository: PetDecorationRepository
+    private val petDecorationRepository: PetDecorationRepository,
+    private val profanityFilter: ProfanityFilter
 ) {
 
     @Transactional
+    @CacheEvict("petsByUser", key = "#request.userId")
     fun createPet(request: CreatePetRequest): PetResponse {
         val user = userRepository.findById(request.userId)
             .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=${request.userId}", HttpStatus.NOT_FOUND) }
+
+        profanityFilter.check(request.name)
+        request.bio?.let { profanityFilter.check(it) }
 
         val currentPetCount = petRepository.countByUserId(request.userId)
         if (currentPetCount >= FreeTierLimits.MAX_PETS_PER_USER) {
@@ -60,12 +69,14 @@ class PetService(
         return PetResponse.from(petRepository.save(pet))
     }
 
+    @Cacheable("pets", key = "#petId")
     fun getPetById(petId: Long): PetResponse {
         val pet = petRepository.findById(petId)
             .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND) }
         return PetResponse.from(pet)
     }
 
+    @Cacheable("petsByUser", key = "#userId")
     fun getPetsByUserId(userId: Long): List<PetResponse> {
         return petRepository.findByUserId(userId).map { PetResponse.from(it) }
     }
@@ -79,17 +90,21 @@ class PetService(
     }
 
     @Transactional
+    @Caching(evict = [
+        CacheEvict("pets", key = "#petId"),
+        CacheEvict("petsByUser", allEntries = true)
+    ])
     fun updatePet(petId: Long, request: UpdatePetRequest): PetResponse {
         val pet = petRepository.findById(petId)
             .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND) }
 
-        request.name?.let { pet.name = it }
+        request.name?.let { profanityFilter.check(it); pet.name = it }
         request.species?.let { pet.species = it }
         request.breed?.let { pet.breed = it }
         request.age?.let { pet.age = it }
         request.gender?.let { pet.gender = it }
         request.weight?.let { pet.weight = it }
-        request.bio?.let { pet.bio = it }
+        request.bio?.let { profanityFilter.check(it); pet.bio = it }
         request.profileImageUrl?.let { pet.profileImageUrl = it }
         pet.updatedAt = LocalDateTime.now()
 
@@ -97,6 +112,10 @@ class PetService(
     }
 
     @Transactional
+    @Caching(evict = [
+        CacheEvict("pets", key = "#petId"),
+        CacheEvict("petsByUser", allEntries = true)
+    ])
     fun deletePet(petId: Long) {
         if (!petRepository.existsById(petId)) {
             throw CustomException("반려동물을 찾을 수 없습니다. id=$petId", HttpStatus.NOT_FOUND)

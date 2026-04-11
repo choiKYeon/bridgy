@@ -1,6 +1,7 @@
 package org.grr.bridgy.domain.user.service
 
 import org.grr.bridgy.common.exception.CustomException
+import org.grr.bridgy.common.filter.ProfanityFilter
 import org.grr.bridgy.domain.user.dto.SignUpRequest
 import org.grr.bridgy.domain.user.dto.UpdateUserRequest
 import org.grr.bridgy.domain.user.dto.UserResponse
@@ -15,11 +16,15 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class UserService(
     private val userRepository: UserRepository,
-    private val passwordEncoder: PasswordEncoder
+    private val passwordEncoder: PasswordEncoder,
+    private val profanityFilter: ProfanityFilter
 ) {
 
     @Transactional
     fun signUp(request: SignUpRequest): UserResponse {
+        profanityFilter.check(request.nickname)
+        request.bio?.let { profanityFilter.check(it) }
+
         if (userRepository.existsByEmail(request.email)) {
             throw CustomException("이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT)
         }
@@ -54,13 +59,14 @@ class UserService(
             .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=$userId", HttpStatus.NOT_FOUND) }
 
         request.nickname?.let {
+            profanityFilter.check(it)
             if (it != user.nickname && userRepository.existsByNickname(it)) {
                 throw CustomException("이미 사용 중인 닉네임입니다.", HttpStatus.CONFLICT)
             }
             user.nickname = it
         }
         request.profileImageUrl?.let { user.profileImageUrl = it }
-        request.bio?.let { user.bio = it }
+        request.bio?.let { profanityFilter.check(it); user.bio = it }
 
         return UserResponse.from(userRepository.save(user))
     }

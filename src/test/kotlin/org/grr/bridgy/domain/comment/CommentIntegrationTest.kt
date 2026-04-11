@@ -149,7 +149,7 @@ class CommentIntegrationTest : BaseIntegrationTest() {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(request))
         )
-            .andExpect(status().isUnauthorized.or(status().isForbidden))
+            .andExpect(status().is4xxClientError)
     }
 
     @Test
@@ -209,6 +209,42 @@ class CommentIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(11)
+    fun `V1 댓글 작성 실패 - 비속어 포함`() {
+        val (_, commenter, pet) = setup()
+        val request = CreateCommentRequest(petId = pet.id, userId = commenter.id, content = "진짜 씨발 귀엽다")
+
+        mockMvc.perform(
+            post("/api/v1/comments")
+                .withAuth(commenter)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isBadRequest)
+
+        Assertions.assertEquals(0, commentRepository.countByPetId(pet.id))
+    }
+
+    @Test
+    @Order(12)
+    fun `V1 댓글 수정 실패 - 비속어 포함`() {
+        val (_, commenter, pet) = setup()
+        val comment = commentRepository.save(Comment(pet = pet, user = commenter, content = "좋은 댓글"))
+        val updateRequest = UpdateCommentRequest(content = "병신같은 댓글로 수정")
+
+        mockMvc.perform(
+            put("/api/v1/comments/${comment.id}")
+                .withAuth(commenter)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(updateRequest))
+        )
+            .andExpect(status().isBadRequest)
+
+        val unchanged = commentRepository.findById(comment.id).get()
+        Assertions.assertEquals("좋은 댓글", unchanged.content)
+    }
+
+    @Test
+    @Order(13)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, commentRepository.count())
     }

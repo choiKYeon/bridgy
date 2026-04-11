@@ -17,5 +17,5 @@ class RefreshToken(
     var token: String,
 
     @Column(nullable = false)
-    val expiryDate: java.time.LocalDateTime
+    var expiryDate: java.time.LocalDateTime
 ) : BaseTime()

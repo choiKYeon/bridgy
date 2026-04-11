@@ -1,6 +1,8 @@
 package org.grr.bridgy.domain.like.service
 
 import org.grr.bridgy.common.exception.CustomException
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.grr.bridgy.domain.like.dto.LikeRequest
 import org.grr.bridgy.domain.like.dto.LikeResponse
 import org.grr.bridgy.domain.like.entity.Like
@@ -20,6 +22,7 @@ class LikeService(
 ) {
 
     @Transactional
+    @CacheEvict("likeCounts", key = "#request.petId")
     fun toggleLike(request: LikeRequest): LikeResponse {
         val pet = petRepository.findById(request.petId)
             .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
@@ -53,6 +56,7 @@ class LikeService(
         )
     }
 
+    @Cacheable("likeCounts", key = "#petId")
     fun getLikeCount(petId: Long): Long {
         return likeRepository.countByPetId(petId)
     }

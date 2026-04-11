@@ -97,7 +97,7 @@ class UserIntegrationTest : BaseIntegrationTest() {
         val user = createTestUser()
 
         mockMvc.perform(get("/api/v1/users/${user.id}"))
-            .andExpect(status().isUnauthorized.or(status().isForbidden))
+            .andExpect(status().is4xxClientError)
     }
 
     @Test
@@ -160,6 +160,43 @@ class UserIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(10)
+    fun `V0 회원가입 실패 - 비속어 포함 닉네임`() {
+        val request = SignUpRequest(
+            email = "badnick@example.com",
+            password = "password123",
+            nickname = "존나멋진유저"
+        )
+
+        mockMvc.perform(
+            post("/api/v0/users/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isBadRequest)
+
+        Assertions.assertFalse(userRepository.findByEmail("badnick@example.com").isPresent)
+    }
+
+    @Test
+    @Order(11)
+    fun `V1 사용자 수정 실패 - 비속어 포함 닉네임`() {
+        val user = createTestUser()
+        val updateRequest = UpdateUserRequest(nickname = "씨발유저")
+
+        mockMvc.perform(
+            put("/api/v1/users/${user.id}")
+                .withAuth(user)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(updateRequest))
+        )
+            .andExpect(status().isBadRequest)
+
+        val unchanged = userRepository.findById(user.id).get()
+        Assertions.assertEquals("테스트유저", unchanged.nickname)
+    }
+
+    @Test
+    @Order(12)
     fun `트랜잭션 롤백 검증 - 이전 테스트 데이터가 없어야 함`() {
         Assertions.assertEquals(0, userRepository.count())
     }

@@ -54,11 +54,13 @@ class RedisConfig {
 
         // 캐시별 TTL 설정
         val cacheConfigs = mapOf(
-            "pets" to defaultConfig.entryTtl(Duration.ofMinutes(30)),           // 반려동물 프로필: 30분
-            "petsByUser" to defaultConfig.entryTtl(Duration.ofMinutes(15)),     // 사용자별 반려동물 목록: 15분
-            "gallery" to defaultConfig.entryTtl(Duration.ofMinutes(10)),        // 갤러리: 10분
-            "healthRecords" to defaultConfig.entryTtl(Duration.ofMinutes(10)),  // 건강 기록: 10분
-            "dailyRecords" to defaultConfig.entryTtl(Duration.ofMinutes(5))    // 일상 기록: 5분
+            "pets"          to defaultConfig.entryTtl(Duration.ofMinutes(30)),
+            "petsByUser"    to defaultConfig.entryTtl(Duration.ofMinutes(15)),
+            "gallery"       to defaultConfig.entryTtl(Duration.ofMinutes(10)),
+            "likeCounts"    to defaultConfig.entryTtl(Duration.ofMinutes(1)),
+            "commentCounts" to defaultConfig.entryTtl(Duration.ofMinutes(1)),
+            "healthRecords" to defaultConfig.entryTtl(Duration.ofMinutes(10)),
+            "dailyRecords"  to defaultConfig.entryTtl(Duration.ofMinutes(5))
         )
 
         return RedisCacheManager.builder(connectionFactory)

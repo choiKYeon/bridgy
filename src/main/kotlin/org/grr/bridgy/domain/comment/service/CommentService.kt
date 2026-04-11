@@ -2,6 +2,9 @@ package org.grr.bridgy.domain.comment.service
 
 import org.grr.bridgy.common.config.FreeTierLimits
 import org.grr.bridgy.common.exception.CustomException
+import org.grr.bridgy.common.filter.ProfanityFilter
+import org.springframework.cache.annotation.CacheEvict
+import org.springframework.cache.annotation.Cacheable
 import org.grr.bridgy.domain.comment.dto.CommentResponse
 import org.grr.bridgy.domain.comment.dto.CreateCommentRequest
 import org.grr.bridgy.domain.comment.dto.UpdateCommentRequest
@@ -20,15 +23,19 @@ import java.time.LocalDateTime
 class CommentService(
     private val commentRepository: CommentRepository,
     private val petRepository: PetRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val profanityFilter: ProfanityFilter
 ) {
 
     @Transactional
+    @CacheEvict("commentCounts", key = "#request.petId")
     fun createComment(request: CreateCommentRequest): CommentResponse {
         val pet = petRepository.findById(request.petId)
             .orElseThrow { CustomException("반려동물을 찾을 수 없습니다. id=${request.petId}", HttpStatus.NOT_FOUND) }
         val user = userRepository.findById(request.userId)
             .orElseThrow { CustomException("사용자를 찾을 수 없습니다. id=${request.userId}", HttpStatus.NOT_FOUND) }
+
+        profanityFilter.check(request.content)
 
         // 댓글 글자수 제한
         if (request.content.length > FreeTierLimits.MAX_COMMENT_LENGTH) {
@@ -61,6 +68,7 @@ class CommentService(
             .map { CommentResponse.from(it) }
     }
 
+    @Cacheable("commentCounts", key = "#petId")
     fun getCommentCount(petId: Long): Long {
         return commentRepository.countByPetId(petId)
     }
@@ -69,6 +77,8 @@ class CommentService(
     fun updateComment(commentId: Long, request: UpdateCommentRequest): CommentResponse {
         val comment = commentRepository.findById(commentId)
             .orElseThrow { CustomException("댓글을 찾을 수 없습니다. id=$commentId", HttpStatus.NOT_FOUND) }
+
+        profanityFilter.check(request.content)
 
         // 수정 시에도 글자수 제한
         if (request.content.length > FreeTierLimits.MAX_COMMENT_LENGTH) {
@@ -85,6 +95,7 @@ class CommentService(
     }
 
     @Transactional
+    @CacheEvict("commentCounts", allEntries = true)
     fun deleteComment(commentId: Long) {
         if (!commentRepository.existsById(commentId)) {
             throw CustomException("댓글을 찾을 수 없습니다. id=$commentId", HttpStatus.NOT_FOUND)

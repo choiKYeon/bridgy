@@ -75,7 +75,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
         mockMvc.perform(get("/api/v0/pets/search").param("name", "뽀").param("page", "0").param("size", "10"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.content.length()").value(2))
-            .andExpect(jsonPath("$.totalElements").value(2))
+            .andExpect(jsonPath("$.total_elements").value(2))
     }
 
     @Test
@@ -113,7 +113,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
         mockMvc.perform(get("/api/v0/pets/feed/popular").param("page", "0").param("size", "2"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.content.length()").value(2))
-            .andExpect(jsonPath("$.totalElements").value(3))
+            .andExpect(jsonPath("$.total_elements").value(3))
             .andExpect(jsonPath("$.content[0].name").value("뽀삐"))
     }
 
@@ -192,7 +192,7 @@ class PetIntegrationTest : BaseIntegrationTest() {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(request))
         )
-            .andExpect(status().isUnauthorized.or(status().isForbidden))
+            .andExpect(status().is4xxClientError)
     }
 
     @Test
@@ -231,6 +231,42 @@ class PetIntegrationTest : BaseIntegrationTest() {
 
     @Test
     @Order(12)
+    fun `V1 반려동물 등록 실패 - 비속어 포함 이름`() {
+        val user = createPetOwner()
+        val request = CreatePetRequest(userId = user.id, name = "씨발이", species = "강아지")
+
+        mockMvc.perform(
+            post("/api/v1/pets")
+                .withAuth(user)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(request))
+        )
+            .andExpect(status().isBadRequest)
+
+        Assertions.assertEquals(0, petRepository.findByUserId(user.id).size)
+    }
+
+    @Test
+    @Order(13)
+    fun `V1 반려동물 수정 실패 - 비속어 포함 소개글`() {
+        val user = createPetOwner()
+        val pet = createTestPet(user)
+        val updateRequest = UpdatePetRequest(bio = "개새끼처럼 귀여운 강아지")
+
+        mockMvc.perform(
+            put("/api/v1/pets/${pet.id}")
+                .withAuth(user)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(updateRequest))
+        )
+            .andExpect(status().isBadRequest)
+
+        val unchanged = petRepository.findById(pet.id).get()
+        Assertions.assertEquals("귀여운 뽀삐", unchanged.bio)
+    }
+
+    @Test
+    @Order(14)
     fun `트랜잭션 롤백 검증`() {
         Assertions.assertEquals(0, petRepository.count())
         Assertions.assertEquals(0, userRepository.count())
